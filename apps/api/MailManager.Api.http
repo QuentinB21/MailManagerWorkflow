@@ -1,0 +1,19 @@
+@host = http://localhost:8080
+@mailboxId = 11111111-1111-1111-1111-111111111111
+
+GET {{host}}/health
+
+###
+GET {{host}}/api/rules?mailboxConnectionId={{mailboxId}}
+
+###
+POST {{host}}/api/classification/simulate
+Content-Type: application/json
+
+{
+  "mailboxConnectionId": "{{mailboxId}}",
+  "externalMessageId": "manual-demo-1",
+  "sender": "contact@exemple.fr",
+  "subject": "Projet Alpha - prochaines étapes",
+  "body": "Bonjour, voici le compte-rendu."
+}

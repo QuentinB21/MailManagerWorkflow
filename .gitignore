@@ -1,0 +1,25 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+
+# .NET
+**/bin/
+**/obj/
+TestResults/
+
+# Frontend
+**/node_modules/
+**/dist/
+*.tsbuildinfo
+
+# IDE and OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# n8n runtime data (exports remain versioned)
+.n8n/

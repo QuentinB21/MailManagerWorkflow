@@ -1,0 +1,151 @@
+{
+  "id": "6bca4f35-87e1-4d3b-b628-d6aee1252fe7",
+  "name": "POC - Classement d'un email fictif",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mail-manager/email",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "3e76c2ce-2300-4d96-a860-acde58942671",
+      "name": "Email fictif (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-760, 40],
+      "webhookId": "13fb8c84-8034-49bc-96ca-57eaf86fc5a9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8080/api/classification/process",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ mailboxConnectionId: $json.body.mailboxConnectionId, externalMessageId: $json.body.externalMessageId, sender: $json.body.sender, subject: $json.body.subject ?? '', body: $json.body.body ?? '' }) }}",
+        "options": {}
+      },
+      "id": "27543384-94da-4508-a9e6-a91fc7803c16",
+      "name": "Classer et historiser via l'API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-500, 40]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da9fc4c0-aa28-4234-af90-0dc2cb148077",
+              "leftValue": "={{ $json.isClassified }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3c64b388-3115-499c-9657-b33b50cd7cc6",
+      "name": "Email classé ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-240, 40]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d36b351b-5f4d-4a89-bbc3-ebea46a86491",
+              "name": "workflowOutcome",
+              "value": "classified",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "7734332b-9f48-4708-8f22-15d980a6791b",
+      "name": "Branche classé",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [20, -80]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cc3f4b02-b75a-405f-b354-6458e274f608",
+              "name": "workflowOutcome",
+              "value": "unclassified",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "eb00aadf-3490-4180-acd3-9d8cfeb9fabe",
+      "name": "Branche non classé",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [20, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "64663b9b-57c2-41c0-bb1c-583093ab9437",
+      "name": "Retourner la décision",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [300, 40]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Email fictif (Webhook)": {
+      "main": [[{ "node": "Classer et historiser via l'API", "type": "main", "index": 0 }]]
+    },
+    "Classer et historiser via l'API": {
+      "main": [[{ "node": "Email classé ?", "type": "main", "index": 0 }]]
+    },
+    "Email classé ?": {
+      "main": [
+        [{ "node": "Branche classé", "type": "main", "index": 0 }],
+        [{ "node": "Branche non classé", "type": "main", "index": 0 }]
+      ]
+    },
+    "Branche classé": {
+      "main": [[{ "node": "Retourner la décision", "type": "main", "index": 0 }]]
+    },
+    "Branche non classé": {
+      "main": [[{ "node": "Retourner la décision", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1b981c1d-906c-474c-bb55-8c9bd30291fe",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
