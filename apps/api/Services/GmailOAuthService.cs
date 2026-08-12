@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using MailManager.Api.Configuration;
 using MailManager.Api.Data;
+using MailManager.Api.Domain;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -30,7 +31,9 @@ public sealed class GmailOAuthService(
     {
         var credentials = await GetCredentialsAsync(cancellationToken);
         var exists = await dbContext.MailboxConnections.AnyAsync(
-            mailbox => mailbox.Id == mailboxConnectionId && mailbox.IsActive,
+            mailbox => mailbox.Id == mailboxConnectionId
+                && mailbox.Provider == MailProvider.Gmail
+                && mailbox.IsActive,
             cancellationToken);
         if (!exists) return null;
 
@@ -69,7 +72,8 @@ public sealed class GmailOAuthService(
         }
 
         var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
-            item => item.Id == statePayload.MailboxConnectionId,
+            item => item.Id == statePayload.MailboxConnectionId
+                && item.Provider == MailProvider.Gmail,
             cancellationToken) ?? throw new InvalidOperationException("Boîte mail introuvable.");
 
         var client = httpClientFactory.CreateClient("GoogleOAuth");

@@ -1,5 +1,16 @@
 # Architecture du POC
 
+## Fournisseurs de messagerie
+
+Le domaine (`ClassificationRule`, `LabelDefinition`, `ProcessingLog`) reste indépendant des fournisseurs. Chaque agrégat est rattaché à un `MailboxConnectionId`. Le champ `Provider` est un type fermé (`Gmail` ou `Outlook`) et un résolveur sélectionne un adaptateur implémentant `IMailboxProviderAdapter`.
+
+- `GmailMailboxService` normalise Gmail et applique des labels Gmail.
+- `OutlookMailboxService` normalise Microsoft Graph et applique des catégories Outlook.
+- `EmailProcessingService` et `ClassificationEngine` ne connaissent aucun fournisseur.
+- n8n récupère toutes les boîtes actives et connectées, puis appelle `/api/mailboxes/{id}/sync` pour chacune.
+
+Cette architecture **ports et adaptateurs** évite de dupliquer la logique métier et permet d’ajouter un fournisseur sans modifier le moteur de classement.
+
 ## Principes
 
 La frontière principale sépare l'orchestration de la décision métier. n8n déplace les données et appelle les systèmes ; l'API décide et garantit les invariants. Le fournisseur de messagerie ne traverse jamais directement cette frontière : ses données devront d'abord être converties en email normalisé.

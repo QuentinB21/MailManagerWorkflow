@@ -1,0 +1,58 @@
+{
+  "id": "9a9cfe88-4a5c-4d7f-9d25-6f0c44b2f1e2",
+  "name": "POC - Classement automatique multi-boîtes",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "minutes", "minutesInterval": 1 }] } },
+      "id": "1eeaf642-7571-4429-a6ce-88c46f266315",
+      "name": "Vérifier les boîtes chaque minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-600, 0]
+    },
+    {
+      "parameters": { "url": "http://api:8080/api/mailboxes/automation-targets", "options": { "response": { "response": { "responseFormat": "json" } } } },
+      "id": "60eed83b-e5a2-4e3e-b53e-89a93439d85d",
+      "name": "Récupérer toutes les boîtes connectées",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-340, 0],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": { "jsCode": "const payload = $input.first().json;\nreturn Array.isArray(payload) ? payload.map(json => ({ json })) : $input.all();" },
+      "id": "d163ac04-f237-4cae-a122-b09216124860",
+      "name": "Une exécution par boîte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://api:8080/api/mailboxes/{{ $json.mailboxConnectionId }}/sync",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ maxResults: Number($json.maxResults ?? 20) }) }}",
+        "options": {}
+      },
+      "id": "f85a23ba-a405-4bd1-a595-9e9713ff2a24",
+      "name": "Synchroniser via le bon fournisseur",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [180, 0]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Vérifier les boîtes chaque minute": { "main": [[{ "node": "Récupérer toutes les boîtes connectées", "type": "main", "index": 0 }]] },
+    "Récupérer toutes les boîtes connectées": { "main": [[{ "node": "Une exécution par boîte", "type": "main", "index": 0 }]] },
+    "Une exécution par boîte": { "main": [[{ "node": "Synchroniser via le bon fournisseur", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "ba64537c-5f27-4dc6-8122-31281df32827",
+  "meta": { "templateCredsSetupCompleted": true },
+  "tags": []
+}

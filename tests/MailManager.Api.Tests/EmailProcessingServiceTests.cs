@@ -21,7 +21,7 @@ public sealed class EmailProcessingServiceTests
         {
             Id = mailboxId,
             DisplayName = "Test",
-            Provider = "Gmail"
+            Provider = MailProvider.Gmail
         });
         dbContext.LabelDefinitions.Add(new LabelDefinition
         {
@@ -73,7 +73,7 @@ public sealed class EmailProcessingServiceTests
         {
             Id = mailboxId,
             DisplayName = "Test",
-            Provider = "Gmail"
+            Provider = MailProvider.Gmail
         });
         await dbContext.SaveChangesAsync();
 

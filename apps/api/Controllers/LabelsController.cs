@@ -103,7 +103,7 @@ public sealed class LabelsController(MailManagerDbContext dbContext) : Controlle
 
         var nameChanged = !string.Equals(label.Name, name, StringComparison.Ordinal);
         label.Name = name;
-        // A Gmail label ID points to the old name. It will be resolved/created again on next use.
+        // Provider destination identifiers point to the old name and must be resolved again.
         label.ExternalLabelId = nameChanged ? null : NullIfEmpty(request.ExternalLabelId);
         label.Color = NullIfEmpty(request.Color);
         label.IsActive = request.IsActive;

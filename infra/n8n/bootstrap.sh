@@ -27,6 +27,6 @@ import_workflow() {
 }
 
 import_workflow "6bca4f35-87e1-4d3b-b628-d6aee1252fe7" "/opt/mail-manager/workflows/fake-email-classification.json"
-import_workflow "9a9cfe88-4a5c-4d7f-9d25-6f0c44b2f1e2" "/opt/mail-manager/workflows/gmail-unread-sync.json"
+import_workflow "9a9cfe88-4a5c-4d7f-9d25-6f0c44b2f1e2" "/opt/mail-manager/workflows/mailbox-sync.json"
 
 exec n8n start

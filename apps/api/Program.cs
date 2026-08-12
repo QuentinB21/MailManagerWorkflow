@@ -16,6 +16,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<MailManagerDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.Configure<GmailOptions>(builder.Configuration.GetSection(GmailOptions.SectionName));
+builder.Services.Configure<OutlookOptions>(builder.Configuration.GetSection(OutlookOptions.SectionName));
 var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("MailManagerWorkflow");
 if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
@@ -24,12 +25,20 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
 }
 builder.Services.AddHttpClient("GoogleOAuth", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient("GmailApi", client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient("MicrosoftOAuth", client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient("MicrosoftGraph", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<ClassificationEngine>();
 builder.Services.AddScoped<EmailProcessingService>();
 builder.Services.AddScoped<GmailTokenProtector>();
 builder.Services.AddScoped<GmailOAuthConfigurationService>();
 builder.Services.AddScoped<GmailOAuthService>();
 builder.Services.AddScoped<GmailMailboxService>();
+builder.Services.AddScoped<OutlookTokenProtector>();
+builder.Services.AddScoped<OutlookOAuthService>();
+builder.Services.AddScoped<OutlookMailboxService>();
+builder.Services.AddScoped<IMailboxProviderAdapter>(provider => provider.GetRequiredService<GmailMailboxService>());
+builder.Services.AddScoped<IMailboxProviderAdapter>(provider => provider.GetRequiredService<OutlookMailboxService>());
+builder.Services.AddScoped<MailboxProviderResolver>();
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>

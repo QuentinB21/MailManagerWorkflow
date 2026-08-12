@@ -31,6 +31,11 @@ services:
       Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET:-}
       Gmail__RedirectUri: http://localhost:8080/api/gmail/oauth/callback
       Gmail__WebAppUrl: http://localhost:5173
+      Outlook__ClientId: ${OUTLOOK_CLIENT_ID:-}
+      Outlook__ClientSecret: ${OUTLOOK_CLIENT_SECRET:-}
+      Outlook__Tenant: ${OUTLOOK_TENANT:-common}
+      Outlook__RedirectUri: http://localhost:8080/api/outlook/oauth/callback
+      Outlook__WebAppUrl: http://localhost:5173
       DataProtection__KeysPath: /var/lib/mail-manager/keys
     ports:
       - "8080:8080"
@@ -46,7 +51,6 @@ services:
       args:
         VITE_API_URL: http://localhost:8080
         VITE_N8N_WEBHOOK_URL: http://localhost:5678/webhook/mail-manager/email
-        VITE_N8N_GMAIL_WEBHOOK_URL: http://localhost:5678/webhook/mail-manager/gmail/sync
     ports:
       - "5173:80"
     depends_on:

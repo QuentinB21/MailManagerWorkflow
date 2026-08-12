@@ -22,7 +22,7 @@ public sealed class GmailOAuthServiceTests
         {
             Id = mailboxId,
             DisplayName = "Gmail test",
-            Provider = "Gmail"
+            Provider = MailProvider.Gmail
         });
         await dbContext.SaveChangesAsync();
         var dataProtection = new EphemeralDataProtectionProvider();

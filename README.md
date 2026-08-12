@@ -1,5 +1,7 @@
 # Mail Manager Workflow
 
+Le MVP accepte plusieurs connexions Gmail et Outlook. Les règles, destinations et historiques sont isolés par boîte via `MailboxConnectionId`. La configuration Microsoft est décrite dans [docs/outlook-setup.md](docs/outlook-setup.md).
+
 POC mono-utilisateur de classement automatisé d'emails. Le flux démontrable reçoit un email normalisé fictif dans n8n, délègue la décision à une API ASP.NET Core, puis conserve un historique minimal dans PostgreSQL. L'interface React permet de gérer les règles et de simuler leur résultat sans toucher à une boîte Gmail réelle.
 
 ## Ce que couvre le MVP

@@ -20,7 +20,7 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
         modelBuilder.Entity<MailboxConnection>(entity =>
         {
             entity.Property(x => x.DisplayName).HasMaxLength(200);
-            entity.Property(x => x.Provider).HasMaxLength(50);
+            entity.Property(x => x.Provider).HasConversion<string>().HasMaxLength(50);
             entity.Property(x => x.EmailAddress).HasMaxLength(320);
             entity.Property(x => x.EncryptedRefreshToken).HasColumnType("text");
             entity.Property(x => x.GrantedScopes).HasMaxLength(1000);
@@ -85,7 +85,7 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
         {
             Id = DemoMailboxId,
             DisplayName = "Boîte Gmail de démonstration",
-            Provider = "Gmail",
+            Provider = MailProvider.Gmail,
             IsActive = true,
             CreatedAt = seedDate
         });

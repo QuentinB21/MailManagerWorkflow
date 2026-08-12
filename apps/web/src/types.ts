@@ -1,7 +1,9 @@
+export type MailProvider = 'Gmail' | 'Outlook'
+
 export type Mailbox = {
   id: string
   displayName: string
-  provider: string
+  provider: MailProvider
   isActive: boolean
   emailAddress?: string
   isConnected: boolean
@@ -65,23 +67,24 @@ export type ProcessingLog = {
   processedAt: string
 }
 
-export type GmailSyncResult = {
+export type MailboxSyncResult = {
   requestedCount: number
   discoveredCount: number
   processedCount: number
   classifiedCount: number
-  labelAppliedCount: number
+  destinationAppliedCount: number
   unclassifiedCount: number
   failureCount: number
   results: Array<{
     externalMessageId: string
+    subject?: string
     isClassified: boolean
     label?: { id: string; name: string }
     matchedRule?: { id: string; name: string; priority: number }
     matchedCriteria: string[]
     noMatchReason?: string
     wasAlreadyProcessed: boolean
-    labelApplied: boolean
+    destinationApplied: boolean
     error?: string
   }>
 }
@@ -89,4 +92,9 @@ export type GmailSyncResult = {
 export type GmailOAuthConfiguration = {
   isConfigured: boolean
   source: 'Environment' | 'LegacyDatabase' | 'None'
+}
+
+export type ProviderConfiguration = {
+  isConfigured: boolean
+  source: string
 }

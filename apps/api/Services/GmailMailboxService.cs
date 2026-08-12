@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using MailManager.Api.Contracts;
 using MailManager.Api.Data;
+using MailManager.Api.Domain;
 using Microsoft.EntityFrameworkCore;
 
 namespace MailManager.Api.Services;
@@ -16,16 +17,18 @@ public sealed partial class GmailMailboxService(
     IHttpClientFactory httpClientFactory,
     GmailOAuthService oauthService,
     EmailProcessingService processingService,
-    ILogger<GmailMailboxService> logger)
+    ILogger<GmailMailboxService> logger) : IMailboxProviderAdapter
 {
     private const int MaximumBodyLength = 50_000;
 
-    public async Task<GmailConnectionTestResponse?> TestConnectionAsync(
+    public MailProvider Provider => MailProvider.Gmail;
+
+    public async Task<MailboxConnectionTestResponse?> TestConnectionAsync(
         Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
         var mailbox = await dbContext.MailboxConnections.AsNoTracking().FirstOrDefaultAsync(
-            item => item.Id == mailboxConnectionId,
+            item => item.Id == mailboxConnectionId && item.Provider == MailProvider.Gmail,
             cancellationToken);
         if (mailbox?.EncryptedRefreshToken is null) return null;
 
@@ -36,16 +39,24 @@ public sealed partial class GmailMailboxService(
             accessToken,
             "https://gmail.googleapis.com/gmail/v1/users/me/profile",
             cancellationToken);
-        return new GmailConnectionTestResponse(true, profile.GetProperty("emailAddress").GetString() ?? mailbox.EmailAddress ?? string.Empty);
+        return new MailboxConnectionTestResponse(true, profile.GetProperty("emailAddress").GetString() ?? mailbox.EmailAddress ?? string.Empty);
     }
 
-    public async Task<GmailSyncResponse?> ProcessUnreadAsync(
+    public Task<MailboxSyncResponse?> SyncAsync(
+        Guid mailboxConnectionId,
+        int maxResults,
+        CancellationToken cancellationToken) =>
+        ProcessUnreadAsync(mailboxConnectionId, maxResults, cancellationToken);
+
+    public async Task<MailboxSyncResponse?> ProcessUnreadAsync(
         Guid mailboxConnectionId,
         int maxResults,
         CancellationToken cancellationToken)
     {
         var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
-            item => item.Id == mailboxConnectionId && item.IsActive,
+            item => item.Id == mailboxConnectionId
+                && item.Provider == MailProvider.Gmail
+                && item.IsActive,
             cancellationToken);
         if (mailbox?.EncryptedRefreshToken is null) return null;
 
@@ -74,7 +85,7 @@ public sealed partial class GmailMailboxService(
                 .Take(maxResults)
                 .ToArray();
 
-            var results = new List<GmailMessageProcessingResult>();
+            var results = new List<MailboxMessageProcessingResult>();
             foreach (var messageId in candidateIds)
             {
                 try
@@ -115,8 +126,9 @@ public sealed partial class GmailMailboxService(
                         }
                     }
 
-                    results.Add(new GmailMessageProcessingResult(
+                    results.Add(new MailboxMessageProcessingResult(
                         messageId,
+                        EmailProcessingService.CreateSubjectPreview(email.Subject),
                         classification.IsClassified,
                         classification.Label,
                         classification.MatchedRule,
@@ -137,8 +149,8 @@ public sealed partial class GmailMailboxService(
                         log.ProviderActionError = SafeError(exception);
                         await dbContext.SaveChangesAsync(cancellationToken);
                     }
-                    results.Add(new GmailMessageProcessingResult(
-                        messageId, false, null, null, [], null, false, false, SafeError(exception)));
+                    results.Add(new MailboxMessageProcessingResult(
+                        messageId, null, false, null, null, [], null, false, false, SafeError(exception)));
                 }
             }
 
@@ -146,12 +158,12 @@ public sealed partial class GmailMailboxService(
             mailbox.LastSyncError = null;
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            return new GmailSyncResponse(
+            return new MailboxSyncResponse(
                 maxResults,
                 discoveredIds.Count,
                 results.Count,
                 results.Count(item => item.IsClassified),
-                results.Count(item => item.LabelApplied),
+                results.Count(item => item.DestinationApplied),
                 results.Count(item => !item.IsClassified && item.Error is null),
                 results.Count(item => item.Error is not null),
                 results);

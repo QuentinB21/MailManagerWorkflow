@@ -1,6 +1,7 @@
 using MailManager.Api.Contracts;
 using MailManager.Api.Data;
 using MailManager.Api.Services;
+using MailManager.Api.Domain;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,8 +59,8 @@ public sealed class GmailController(
 
         try
         {
-            await oauthService.CompleteAuthorizationAsync(state, code, cancellationToken);
-            return Redirect($"{oauthService.WebAppUrl}/?gmail=connected");
+            var mailboxId = await oauthService.CompleteAuthorizationAsync(state, code, cancellationToken);
+            return Redirect($"{oauthService.WebAppUrl}/?gmail=connected&mailboxId={mailboxId}");
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -69,7 +70,7 @@ public sealed class GmailController(
     }
 
     [HttpGet("mailboxes/{mailboxConnectionId:guid}/test")]
-    public async Task<ActionResult<GmailConnectionTestResponse>> TestConnection(
+    public async Task<ActionResult<MailboxConnectionTestResponse>> TestConnection(
         Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
@@ -87,7 +88,7 @@ public sealed class GmailController(
     }
 
     [HttpPost("mailboxes/{mailboxConnectionId:guid}/process-unread")]
-    public async Task<ActionResult<GmailSyncResponse>> ProcessUnread(
+    public async Task<ActionResult<MailboxSyncResponse>> ProcessUnread(
         Guid mailboxConnectionId,
         GmailSyncRequest request,
         CancellationToken cancellationToken)
@@ -118,7 +119,7 @@ public sealed class GmailController(
         CancellationToken cancellationToken)
     {
         var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
-            item => item.Id == mailboxConnectionId,
+            item => item.Id == mailboxConnectionId && item.Provider == MailProvider.Gmail,
             cancellationToken);
         if (mailbox is null) return NotFound(new { error = "Boîte mail introuvable." });
 
