@@ -26,7 +26,9 @@ export function HistoryTable({ logs, onRefresh, busy, compact }: Props) {
             <tbody>{visibleLogs.map((log) => (
               <tr key={log.id}>
                 <td><span className="cell-primary">{new Date(log.processedAt).toLocaleDateString('fr-FR')}</span><small>{new Date(log.processedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></td>
-                <td><code>{log.externalMessageId}</code></td>
+                <td className="message-cell" title={log.subjectPreview ?? 'Sujet indisponible'}>
+                  <span className="message-subject">{log.subjectPreview ?? 'Sujet indisponible'}</span>
+                </td>
                 <td><span className={log.isClassified ? 'status success' : 'status neutral'}>{log.isClassified ? log.destinationLabelName : 'Non classé'}</span></td>
                 <td>
                   {log.providerLabelAppliedAt ? (

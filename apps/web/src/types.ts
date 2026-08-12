@@ -54,6 +54,7 @@ export type WorkflowResult = ClassificationResult & {
 export type ProcessingLog = {
   id: string
   externalMessageId: string
+  subjectPreview?: string
   isClassified: boolean
   destinationLabelName?: string
   matchedRuleName?: string

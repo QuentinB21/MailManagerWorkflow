@@ -52,6 +52,7 @@ public sealed class EmailProcessingService(
             Id = Guid.NewGuid(),
             MailboxConnectionId = email.MailboxConnectionId,
             ExternalMessageId = externalMessageId,
+            SubjectPreview = CreateSubjectPreview(email.Subject),
             IsClassified = evaluation.IsClassified,
             DestinationLabelId = evaluation.Label?.Id,
             MatchedRuleId = evaluation.Rule?.Id,
@@ -83,6 +84,14 @@ public sealed class EmailProcessingService(
             throw;
         }
         return ToResponse(evaluation, processingLogId: log.Id);
+    }
+
+    internal static string? CreateSubjectPreview(string? subject)
+    {
+        if (string.IsNullOrWhiteSpace(subject)) return null;
+
+        var normalized = string.Join(' ', subject.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return normalized.Length <= 250 ? normalized : normalized[..247] + "...";
     }
 
     private async Task<ClassificationEvaluation> EvaluateAsync(

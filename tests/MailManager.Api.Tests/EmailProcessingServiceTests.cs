@@ -60,4 +60,31 @@ public sealed class EmailProcessingServiceTests
         Assert.Equal(1, await dbContext.ProcessingLogs.CountAsync());
         Assert.DoesNotContain("Contenu non persisté", dbContext.ProcessingLogs.Single().MatchedCriteria);
     }
+
+    [Fact]
+    public async Task Processing_stores_a_normalized_subject_preview()
+    {
+        var options = new DbContextOptionsBuilder<MailManagerDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var dbContext = new MailManagerDbContext(options);
+        var mailboxId = Guid.NewGuid();
+        dbContext.MailboxConnections.Add(new MailboxConnection
+        {
+            Id = mailboxId,
+            DisplayName = "Test",
+            Provider = "Gmail"
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new EmailProcessingService(dbContext, new ClassificationEngine());
+        await service.ProcessAsync(new NormalizedEmailRequest(
+            mailboxId,
+            "gmail-message-subject",
+            "alice@example.com",
+            "  Compte-rendu\n    projet Atlas  ",
+            "Email body must not be stored."));
+
+        Assert.Equal("Compte-rendu projet Atlas", dbContext.ProcessingLogs.Single().SubjectPreview);
+    }
 }

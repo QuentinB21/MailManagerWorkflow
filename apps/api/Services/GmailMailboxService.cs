@@ -54,6 +54,10 @@ public sealed partial class GmailMailboxService(
             var accessToken = await oauthService.GetAccessTokenAsync(
                 mailbox.EncryptedRefreshToken,
                 cancellationToken);
+            await BackfillMissingSubjectPreviewsAsync(
+                accessToken,
+                mailboxConnectionId,
+                cancellationToken);
             var discoveredIds = await ListNewInboxMessageIdsAsync(
                 accessToken,
                 mailbox.ConnectedAt ?? DateTimeOffset.UtcNow,
@@ -65,6 +69,7 @@ public sealed partial class GmailMailboxService(
                 .ToDictionaryAsync(log => log.ExternalMessageId, cancellationToken);
             var candidateIds = discoveredIds
                 .Where(id => !existingLogs.TryGetValue(id, out var log)
+                    || string.IsNullOrWhiteSpace(log.SubjectPreview)
                     || (log.IsClassified && log.ProviderLabelAppliedAt is null))
                 .Take(maxResults)
                 .ToArray();
@@ -79,6 +84,12 @@ public sealed partial class GmailMailboxService(
                         mailboxConnectionId,
                         messageId,
                         cancellationToken);
+                    if (existingLogs.TryGetValue(messageId, out var existingLog)
+                        && string.IsNullOrWhiteSpace(existingLog.SubjectPreview))
+                    {
+                        existingLog.SubjectPreview = EmailProcessingService.CreateSubjectPreview(email.Subject);
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                    }
                     var classification = await processingService.ProcessAsync(email, cancellationToken)
                         ?? throw new InvalidOperationException("La boîte mail n’est plus active.");
                     var labelApplied = false;
@@ -152,6 +163,42 @@ public sealed partial class GmailMailboxService(
             await dbContext.SaveChangesAsync(cancellationToken);
             throw;
         }
+    }
+
+    private async Task BackfillMissingSubjectPreviewsAsync(
+        string accessToken,
+        Guid mailboxConnectionId,
+        CancellationToken cancellationToken)
+    {
+        var logs = await dbContext.ProcessingLogs
+            .Where(log => log.MailboxConnectionId == mailboxConnectionId
+                && log.SubjectPreview == null)
+            .OrderByDescending(log => log.ProcessedAt)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+
+        foreach (var log in logs.Where(log => GmailMessageIdRegex().IsMatch(log.ExternalMessageId)))
+        {
+            try
+            {
+                var email = await GetNormalizedEmailAsync(
+                    accessToken,
+                    mailboxConnectionId,
+                    log.ExternalMessageId,
+                    cancellationToken);
+                log.SubjectPreview = EmailProcessingService.CreateSubjectPreview(email.Subject)
+                    ?? "Sans objet";
+            }
+            catch (GmailApiException exception)
+            {
+                logger.LogInformation(
+                    exception,
+                    "Impossible de compléter le sujet du message Gmail {MessageId}.",
+                    log.ExternalMessageId);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<List<string>> ListNewInboxMessageIdsAsync(
@@ -361,4 +408,7 @@ public sealed partial class GmailMailboxService(
 
     [GeneratedRegex(@"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex EmailRegex();
+
+    [GeneratedRegex("^[0-9a-f]+$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex GmailMessageIdRegex();
 }

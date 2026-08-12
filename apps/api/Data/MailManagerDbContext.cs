@@ -67,6 +67,7 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
         modelBuilder.Entity<ProcessingLog>(entity =>
         {
             entity.Property(x => x.ExternalMessageId).HasMaxLength(300);
+            entity.Property(x => x.SubjectPreview).HasMaxLength(250);
             entity.Property(x => x.DestinationLabelName).HasMaxLength(150);
             entity.Property(x => x.MatchedRuleName).HasMaxLength(200);
             entity.Property(x => x.MatchedCriteria).HasColumnType("text[]");

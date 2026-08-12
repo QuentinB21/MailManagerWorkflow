@@ -25,6 +25,7 @@ public sealed class ProcessingLogsController(MailManagerDbContext dbContext) : C
                 x.Id,
                 x.MailboxConnectionId,
                 x.ExternalMessageId,
+                x.SubjectPreview,
                 x.IsClassified,
                 x.DestinationLabelId,
                 x.DestinationLabelName,

@@ -5,6 +5,7 @@ public sealed class ProcessingLog
     public Guid Id { get; set; }
     public Guid MailboxConnectionId { get; set; }
     public required string ExternalMessageId { get; set; }
+    public string? SubjectPreview { get; set; }
     public bool IsClassified { get; set; }
     public Guid? DestinationLabelId { get; set; }
     public Guid? MatchedRuleId { get; set; }
