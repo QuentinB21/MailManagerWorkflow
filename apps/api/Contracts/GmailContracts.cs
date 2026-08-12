@@ -27,17 +27,6 @@ public sealed record GmailSyncResponse(
 
 public sealed record GmailConnectionTestResponse(bool IsConnected, string EmailAddress);
 
-public sealed record GmailOAuthConfigurationRequest(
-    [Required, MaxLength(500)] string ClientId,
-    [MaxLength(1000)] string? ClientSecret);
-
 public sealed record GmailOAuthConfigurationResponse(
     bool IsConfigured,
-    string? ClientId,
-    bool HasClientSecret,
-    string Source,
-    string RedirectUri,
-    string GmailApiUrl,
-    string ConsentScreenUrl,
-    string TestUsersUrl,
-    string OAuthClientsUrl);
+    string Source);

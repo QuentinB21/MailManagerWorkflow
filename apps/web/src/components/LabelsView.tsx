@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import type { Label, Rule } from '../types'
+import { EditorModal } from './EditorModal'
 
 export type LabelFormState = {
   name: string
@@ -11,10 +12,12 @@ type Props = {
   labels: Label[]
   rules: Rule[]
   form: LabelFormState
+  editorOpen: boolean
   editingId?: string
   pendingDeleteId?: string
   busy: boolean
   onFormChange: (form: LabelFormState) => void
+  onCreate: () => void
   onSubmit: (event: FormEvent) => void
   onEdit: (label: Label) => void
   onCancelEdit: () => void
@@ -23,17 +26,17 @@ type Props = {
   onDelete: (label: Label) => void
 }
 
-export function LabelsView({ labels, rules, form, editingId, pendingDeleteId, busy, onFormChange, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
+export function LabelsView({ labels, rules, form, editorOpen, editingId, pendingDeleteId, busy, onFormChange, onCreate, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
   return (
-    <div className="configuration-layout">
+    <>
       <section className="surface resource-list">
         <div className="section-header">
-          <div><p className="overline">Destinations</p><h2>Labels</h2><p>Organisez les projets ou clients utilisés par vos règles.</p></div>
-          <span className="count-badge">{labels.length}</span>
+          <div><p className="overline">Destinations</p><h2>Libellés Gmail</h2><p>Organisez les projets ou clients utilisés par vos règles.</p></div>
+          <div className="section-actions"><span className="count-badge">{labels.length}</span><button className="button primary" type="button" onClick={onCreate}>Ajouter une destination</button></div>
         </div>
 
         {labels.length === 0 ? (
-          <div className="empty-state"><span className="empty-icon">L</span><h3>Aucun label</h3><p>Créez votre première destination avec le formulaire.</p></div>
+          <div className="empty-state"><span className="empty-icon">L</span><h3>Aucune destination</h3><p>Créez votre premier libellé Gmail pour pouvoir lui associer une règle.</p><button className="button primary" type="button" onClick={onCreate}>Ajouter une destination</button></div>
         ) : (
           <div className="resource-cards">
             {labels.map((label) => {
@@ -66,16 +69,17 @@ export function LabelsView({ labels, rules, form, editingId, pendingDeleteId, bu
         )}
       </section>
 
-      <aside className="surface editor-panel">
-        <div className="editor-heading"><div><p className="overline">{editingId ? 'Modification' : 'Nouveau'}</p><h2>{editingId ? 'Modifier le label' : 'Ajouter un label'}</h2></div>{editingId && <button className="button ghost small" onClick={onCancelEdit}>Annuler</button>}</div>
-        <form className="stack-form" onSubmit={onSubmit}>
-          <label>Nom du label<input required maxLength={150} value={form.name} onChange={(event) => onFormChange({ ...form, name: event.target.value })} placeholder="Ex. Client Acme" /></label>
-          <label>Couleur<span className="color-input"><input type="color" value={form.color} onChange={(event) => onFormChange({ ...form, color: event.target.value })} /><input value={form.color} pattern="#[0-9a-fA-F]{6}" onChange={(event) => onFormChange({ ...form, color: event.target.value })} aria-label="Code couleur" /></span></label>
-          <label className="switch-row"><span><strong>Label actif</strong><small>Les règles vers un label inactif ne classent aucun email.</small></span><input type="checkbox" checked={form.isActive} onChange={(event) => onFormChange({ ...form, isActive: event.target.checked })} /></label>
-          <button className="button primary full" disabled={busy}>{busy ? 'Enregistrement…' : editingId ? 'Enregistrer les modifications' : 'Créer le label'}</button>
-        </form>
-        <div className="editor-tip"><strong>Bon à savoir</strong><p>Un label utilisé par une règle ne peut pas être supprimé. Modifiez d’abord la règle concernée.</p></div>
-      </aside>
-    </div>
+      {editorOpen && (
+        <EditorModal eyebrow={editingId ? 'Modification' : 'Nouvelle destination'} title={editingId ? 'Modifier la destination' : 'Ajouter une destination'} onClose={onCancelEdit}>
+          <form className="stack-form modal-form" onSubmit={onSubmit}>
+            <label>Nom du libellé Gmail<input autoFocus required maxLength={150} value={form.name} onChange={(event) => onFormChange({ ...form, name: event.target.value })} placeholder="Ex. Client Acme" /></label>
+            <label>Couleur<span className="color-input"><input type="color" value={form.color} onChange={(event) => onFormChange({ ...form, color: event.target.value })} /><input value={form.color} pattern="#[0-9a-fA-F]{6}" onChange={(event) => onFormChange({ ...form, color: event.target.value })} aria-label="Code couleur" /></span></label>
+            <label className="switch-row"><span><strong>Destination active</strong><small>Les règles vers une destination inactive ne classent aucun email.</small></span><input type="checkbox" checked={form.isActive} onChange={(event) => onFormChange({ ...form, isActive: event.target.checked })} /></label>
+            <div className="modal-actions"><button className="button ghost" type="button" onClick={onCancelEdit}>Annuler</button><button className="button primary" disabled={busy}>{busy ? 'Enregistrement…' : editingId ? 'Enregistrer les modifications' : 'Créer la destination'}</button></div>
+          </form>
+          <div className="editor-tip"><strong>Bon à savoir</strong><p>Une destination utilisée par une règle ne peut pas être supprimée. Modifiez d’abord la règle concernée.</p></div>
+        </EditorModal>
+      )}
+    </>
   )
 }

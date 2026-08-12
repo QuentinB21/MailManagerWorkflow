@@ -44,13 +44,6 @@ export const api = {
     request<void>(`/api/labels/${id}`, { method: 'DELETE' }),
   gmailConfiguration: () =>
     request<GmailOAuthConfiguration>('/api/gmail/configuration'),
-  saveGmailConfiguration: (configuration: { clientId: string; clientSecret?: string }) =>
-    request<GmailOAuthConfiguration>('/api/gmail/configuration', {
-      method: 'PUT',
-      body: JSON.stringify(configuration),
-    }),
-  deleteGmailConfiguration: () =>
-    request<void>('/api/gmail/configuration', { method: 'DELETE' }),
   gmailAuthorizationUrl: (mailboxId: string) =>
     `${baseUrl}/api/gmail/oauth/authorize?mailboxConnectionId=${encodeURIComponent(mailboxId)}`,
   testGmailConnection: (mailboxId: string) =>

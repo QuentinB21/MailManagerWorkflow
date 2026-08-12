@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import type { Label, MatchMode, Rule } from '../types'
+import { EditorModal } from './EditorModal'
 
 export type RuleFormState = {
   name: string
@@ -17,10 +18,12 @@ type Props = {
   rules: Rule[]
   labels: Label[]
   form: RuleFormState
+  editorOpen: boolean
   editingId?: string
   pendingDeleteId?: string
   busy: boolean
   onFormChange: (form: RuleFormState) => void
+  onCreate: () => void
   onSubmit: (event: FormEvent) => void
   onEdit: (rule: Rule) => void
   onCancelEdit: () => void
@@ -36,13 +39,13 @@ const criteriaFor = (rule: Rule) => [
   ...rule.bodyKeywords.map((value) => `Corps · ${value}`),
 ]
 
-export function RulesView({ rules, labels, form, editingId, pendingDeleteId, busy, onFormChange, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
+export function RulesView({ rules, labels, form, editorOpen, editingId, pendingDeleteId, busy, onFormChange, onCreate, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
   return (
-    <div className="configuration-layout rules-layout">
+    <>
       <section className="surface resource-list">
-        <div className="section-header"><div><p className="overline">Moteur</p><h2>Règles de classement</h2><p>La plus petite priorité est évaluée en premier.</p></div><span className="count-badge">{rules.length}</span></div>
+        <div className="section-header"><div><p className="overline">Moteur</p><h2>Règles de classement</h2><p>La plus petite priorité est évaluée en premier.</p></div><div className="section-actions"><span className="count-badge">{rules.length}</span><button className="button primary" type="button" disabled={labels.length === 0} title={labels.length === 0 ? 'Créez d’abord une destination.' : undefined} onClick={onCreate}>Ajouter une règle</button></div></div>
         {rules.length === 0 ? (
-          <div className="empty-state"><span className="empty-icon">R</span><h3>Aucune règle</h3><p>Ajoutez au moins un critère pour commencer.</p></div>
+          <div className="empty-state"><span className="empty-icon">R</span><h3>Aucune règle</h3><p>{labels.length === 0 ? 'Créez d’abord une destination, puis définissez les emails qui doivent y être classés.' : 'Ajoutez au moins un critère pour commencer le classement.'}</p>{labels.length > 0 && <button className="button primary" type="button" onClick={onCreate}>Ajouter une règle</button>}</div>
         ) : (
           <div className="rule-stack">
             {rules.map((rule) => (
@@ -61,25 +64,26 @@ export function RulesView({ rules, labels, form, editingId, pendingDeleteId, bus
         )}
       </section>
 
-      <aside className="surface editor-panel rule-editor">
-        <div className="editor-heading"><div><p className="overline">{editingId ? 'Modification' : 'Nouvelle'}</p><h2>{editingId ? 'Modifier la règle' : 'Ajouter une règle'}</h2></div>{editingId && <button className="button ghost small" onClick={onCancelEdit}>Annuler</button>}</div>
-        <form className="stack-form" onSubmit={onSubmit}>
-          <label>Nom de la règle<input required value={form.name} onChange={(event) => onFormChange({ ...form, name: event.target.value })} placeholder="Ex. Emails du client Acme" /></label>
-          <div className="field-grid three">
-            <label>Label<select required value={form.destinationLabelId} onChange={(event) => onFormChange({ ...form, destinationLabelId: event.target.value })}><option value="">Choisir…</option>{labels.map((label) => <option key={label.id} value={label.id}>{label.name}{label.isActive ? '' : ' (inactif)'}</option>)}</select></label>
-            <label>Priorité<input type="number" min="0" value={form.priority} onChange={(event) => onFormChange({ ...form, priority: Number(event.target.value) })} /></label>
-            <label>Mode<select value={form.matchMode} onChange={(event) => onFormChange({ ...form, matchMode: event.target.value as MatchMode })}><option value="Any">Any</option><option value="All">All</option></select></label>
-          </div>
-          <div className="criteria-fields"><p>Critères <small>Séparez plusieurs valeurs par des virgules.</small></p>
-            <label>Adresses expéditeur<input value={form.senderAddresses} onChange={(event) => onFormChange({ ...form, senderAddresses: event.target.value })} placeholder="alice@client.fr" /></label>
-            <label>Domaines expéditeur<input value={form.senderDomains} onChange={(event) => onFormChange({ ...form, senderDomains: event.target.value })} placeholder="client.fr" /></label>
-            <label>Mots-clés du sujet<input value={form.subjectKeywords} onChange={(event) => onFormChange({ ...form, subjectKeywords: event.target.value })} placeholder="projet alpha, devis" /></label>
-            <label>Mots-clés du corps<input value={form.bodyKeywords} onChange={(event) => onFormChange({ ...form, bodyKeywords: event.target.value })} /></label>
-          </div>
-          <label className="switch-row"><span><strong>Règle active</strong><small>Une règle inactive est ignorée par le moteur.</small></span><input type="checkbox" checked={form.isActive} onChange={(event) => onFormChange({ ...form, isActive: event.target.checked })} /></label>
-          <button className="button primary full" disabled={busy || labels.length === 0}>{busy ? 'Enregistrement…' : editingId ? 'Enregistrer les modifications' : 'Créer la règle'}</button>
-        </form>
-      </aside>
-    </div>
+      {editorOpen && (
+        <EditorModal wide eyebrow={editingId ? 'Modification' : 'Nouvelle règle'} title={editingId ? 'Modifier la règle' : 'Ajouter une règle'} onClose={onCancelEdit}>
+          <form className="stack-form modal-form" onSubmit={onSubmit}>
+            <label>Nom de la règle<input autoFocus required value={form.name} onChange={(event) => onFormChange({ ...form, name: event.target.value })} placeholder="Ex. Emails du client Acme" /></label>
+            <div className="field-grid three">
+              <label>Destination<select required value={form.destinationLabelId} onChange={(event) => onFormChange({ ...form, destinationLabelId: event.target.value })}><option value="">Choisir…</option>{labels.map((label) => <option key={label.id} value={label.id}>{label.name}{label.isActive ? '' : ' (inactive)'}</option>)}</select></label>
+              <label>Priorité<input type="number" min="0" value={form.priority} onChange={(event) => onFormChange({ ...form, priority: Number(event.target.value) })} /></label>
+              <label>Mode<select value={form.matchMode} onChange={(event) => onFormChange({ ...form, matchMode: event.target.value as MatchMode })}><option value="Any">Au moins un</option><option value="All">Tous</option></select></label>
+            </div>
+            <div className="criteria-fields"><p>Critères <small>Séparez plusieurs valeurs par des virgules.</small></p>
+              <label>Adresses expéditeur<input value={form.senderAddresses} onChange={(event) => onFormChange({ ...form, senderAddresses: event.target.value })} placeholder="alice@client.fr" /></label>
+              <label>Domaines expéditeur<input value={form.senderDomains} onChange={(event) => onFormChange({ ...form, senderDomains: event.target.value })} placeholder="client.fr" /></label>
+              <label>Mots-clés du sujet<input value={form.subjectKeywords} onChange={(event) => onFormChange({ ...form, subjectKeywords: event.target.value })} placeholder="projet alpha, devis" /></label>
+              <label>Mots-clés du corps<input value={form.bodyKeywords} onChange={(event) => onFormChange({ ...form, bodyKeywords: event.target.value })} /></label>
+            </div>
+            <label className="switch-row"><span><strong>Règle active</strong><small>Une règle inactive est ignorée par le moteur.</small></span><input type="checkbox" checked={form.isActive} onChange={(event) => onFormChange({ ...form, isActive: event.target.checked })} /></label>
+            <div className="modal-actions"><button className="button ghost" type="button" onClick={onCancelEdit}>Annuler</button><button className="button primary" disabled={busy || labels.length === 0}>{busy ? 'Enregistrement…' : editingId ? 'Enregistrer les modifications' : 'Créer la règle'}</button></div>
+          </form>
+        </EditorModal>
+      )}
+    </>
   )
 }

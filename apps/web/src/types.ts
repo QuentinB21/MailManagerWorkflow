@@ -87,12 +87,5 @@ export type GmailSyncResult = {
 
 export type GmailOAuthConfiguration = {
   isConfigured: boolean
-  clientId?: string
-  hasClientSecret: boolean
-  source: 'Application' | 'Environment' | 'None'
-  redirectUri: string
-  gmailApiUrl: string
-  consentScreenUrl: string
-  testUsersUrl: string
-  oAuthClientsUrl: string
+  source: 'Environment' | 'LegacyDatabase' | 'None'
 }

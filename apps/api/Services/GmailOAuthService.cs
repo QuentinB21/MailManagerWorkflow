@@ -153,7 +153,7 @@ public sealed class GmailOAuthService(
     {
         return await configurationService.GetCredentialsAsync(cancellationToken)
             ?? throw new GmailConfigurationException(
-                "La connexion Gmail n’est pas configurée. Enregistrez le client OAuth depuis l’application.");
+                "La connexion Gmail n’est pas configurée sur le serveur.");
     }
 
     private static async Task<T> ReadJsonAsync<T>(

@@ -1,6 +1,6 @@
 using MailManager.Api.Configuration;
-using MailManager.Api.Contracts;
 using MailManager.Api.Data;
+using MailManager.Api.Domain;
 using MailManager.Api.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -11,54 +11,65 @@ namespace MailManager.Api.Tests;
 public sealed class GmailOAuthConfigurationServiceTests
 {
     [Fact]
-    public async Task Configuration_saved_from_application_encrypts_client_secret()
+    public async Task Environment_configuration_is_used_without_exposing_credentials()
     {
         var options = new DbContextOptionsBuilder<MailManagerDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var dbContext = new MailManagerDbContext(options);
-        var service = CreateService(dbContext);
+        var service = CreateService(dbContext, new GmailOptions
+        {
+            ClientId = "client.apps.googleusercontent.com",
+            ClientSecret = "server-secret"
+        });
 
-        var response = await service.SaveAsync(
-            new GmailOAuthConfigurationRequest(
-                "client.apps.googleusercontent.com",
-                "plain-client-secret"),
-            default);
+        var response = await service.GetStatusAsync(default);
+        var credentials = await service.GetCredentialsAsync(default);
 
-        var stored = Assert.Single(dbContext.GmailOAuthConfigurations);
         Assert.True(response.IsConfigured);
-        Assert.Equal("Application", response.Source);
-        Assert.NotEqual("plain-client-secret", stored.EncryptedClientSecret);
-        Assert.Equal("plain-client-secret", (await service.GetCredentialsAsync(default))?.ClientSecret);
+        Assert.Equal("Environment", response.Source);
+        Assert.Equal("client.apps.googleusercontent.com", credentials?.ClientId);
+        Assert.Equal("server-secret", credentials?.ClientSecret);
     }
 
     [Fact]
-    public async Task Blank_secret_during_update_preserves_existing_secret()
+    public async Task Legacy_database_configuration_remains_readable_during_migration()
     {
         var options = new DbContextOptionsBuilder<MailManagerDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         await using var dbContext = new MailManagerDbContext(options);
-        var service = CreateService(dbContext);
-        await service.SaveAsync(
-            new GmailOAuthConfigurationRequest("first.apps.googleusercontent.com", "secret"),
-            default);
+        var dataProtection = new EphemeralDataProtectionProvider();
+        var protector = new GmailTokenProtector(dataProtection);
+        dbContext.GmailOAuthConfigurations.Add(new GmailOAuthConfiguration
+        {
+            Id = Guid.NewGuid(),
+            ClientId = "legacy.apps.googleusercontent.com",
+            EncryptedClientSecret = protector.ProtectClientSecret("legacy-secret")
+        });
+        await dbContext.SaveChangesAsync();
+        var service = new GmailOAuthConfigurationService(
+            dbContext,
+            protector,
+            Options.Create(new GmailOptions()));
 
-        await service.SaveAsync(
-            new GmailOAuthConfigurationRequest("second.apps.googleusercontent.com", null),
-            default);
-
+        var response = await service.GetStatusAsync(default);
         var credentials = await service.GetCredentialsAsync(default);
-        Assert.Equal("second.apps.googleusercontent.com", credentials?.ClientId);
-        Assert.Equal("secret", credentials?.ClientSecret);
+
+        Assert.True(response.IsConfigured);
+        Assert.Equal("LegacyDatabase", response.Source);
+        Assert.Equal("legacy.apps.googleusercontent.com", credentials?.ClientId);
+        Assert.Equal("legacy-secret", credentials?.ClientSecret);
     }
 
-    private static GmailOAuthConfigurationService CreateService(MailManagerDbContext dbContext)
+    private static GmailOAuthConfigurationService CreateService(
+        MailManagerDbContext dbContext,
+        GmailOptions options)
     {
         var dataProtection = new EphemeralDataProtectionProvider();
         return new GmailOAuthConfigurationService(
             dbContext,
             new GmailTokenProtector(dataProtection),
-            Options.Create(new GmailOptions()));
+            Options.Create(options));
     }
 }

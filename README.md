@@ -5,7 +5,7 @@ POC mono-utilisateur de classement automatisé d'emails. Le flux démontrable re
 ## Ce que couvre le MVP
 
 - labels et règles rattachés à une `MailboxConnection` ;
-- tableau de bord React organisé en trois espaces : vue d’ensemble, configuration et banc de test ;
+- interface React organisée autour du classement, de l’activité et des paramètres Gmail ;
 - création, modification, activation, désactivation et suppression des labels ;
 - création, modification, activation, désactivation et suppression des règles ;
 - critères par adresse, domaine, sujet ou corps, avec modes `Any` et `All` ;
@@ -57,7 +57,7 @@ La voie recommandée nécessite uniquement Docker Desktop avec Docker Compose. P
 
 Au premier démarrage, l'API applique automatiquement les migrations dans le conteneur et crée une boîte de démonstration ainsi qu'un label `Projet Démo`. L'image n8n importe et publie automatiquement le workflow JSON versionné s'il n'existe pas encore. PostgreSQL est exposé sur le port hôte `5433` pour éviter les installations locales courantes sur `5432`.
 
-Pour connecter une vraie boîte, ouvrez **Boîte Gmail** dans l’application ou suivez [docs/gmail-setup.md](docs/gmail-setup.md). L’écran fournit les liens Google Cloud, l’URI de redirection et le formulaire Client ID/secret. Aucun changement de `.env` ni rebuild n’est requis.
+Pour connecter une vraie boîte, l’exploitant configure une seule fois le client OAuth Google dans le fichier `.env`, puis l’utilisateur ouvre **Paramètres** et clique sur **Connecter mon compte Gmail**. Voir [docs/gmail-setup.md](docs/gmail-setup.md).
 
 Pour arrêter l'environnement sans supprimer les données :
 
@@ -107,12 +107,12 @@ dotnet tool run dotnet-ef migrations add NomDeLaMigration --project apps/api/Mai
 
 1. Dans n8n, terminez si nécessaire la configuration locale du propriétaire n8n. Le workflow `POC - Classement d'un email fictif` est déjà importé et publié par le bootstrap.
 2. Dans React, créez ou activez une règle, par exemple domaine `client.fr` → `Projet Démo`.
-3. Dans la section **Tester un email**, renseignez un expéditeur comme `alice@client.fr`.
+3. Dans **Classement > Tester les règles**, renseignez un expéditeur comme `alice@client.fr`.
 4. Cliquez sur **Tester le workflow n8n**.
 
 Le résultat affiche la branche n8n (`classified` ou `unclassified`), le label, la règle et les critères correspondants. La décision est enregistrée et la section **Historique n8n / API** est actualisée automatiquement. Le bouton **Simuler via l'API** reste disponible pour tester le moteur sans écrire dans l'historique.
 
-La section **Configuration** permet de gérer les labels et les règles sans passer par Swagger. La suppression d’un label déjà référencé par une règle est bloquée : il faut d’abord modifier ou supprimer la règle concernée afin de préserver l’intégrité de la configuration.
+La section **Classement** permet de gérer les destinations et les règles sans passer par Swagger. La suppression d’une destination déjà référencée par une règle est bloquée : il faut d’abord modifier ou supprimer la règle concernée afin de préserver l’intégrité de la configuration.
 
 Pour créer un traitement distinct, changez l'identifiant externe. Réutiliser le même identifiant teste l'idempotence et affiche `wasAlreadyProcessed: true` sans créer de doublon.
 
@@ -161,8 +161,6 @@ pnpm build
 | `GET` | `/api/gmail/oauth/authorize` | Démarrage de la connexion OAuth Gmail |
 | `GET` | `/api/gmail/oauth/callback` | Retour OAuth traité côté serveur |
 | `GET` | `/api/gmail/configuration` | État de la configuration OAuth sans exposer le secret |
-| `PUT` | `/api/gmail/configuration` | Enregistrement chiffré du Client ID et du secret |
-| `DELETE` | `/api/gmail/configuration` | Suppression de la configuration OAuth locale |
 | `GET` | `/api/gmail/mailboxes/{id}/test` | Vérification de la connexion Gmail |
 | `GET` | `/api/mailboxes/active` | Cible mono-boîte utilisée par l’automatisation n8n |
 | `POST` | `/api/gmail/mailboxes/{id}/process-unread` | Traitement idempotent des nouveaux emails Gmail |

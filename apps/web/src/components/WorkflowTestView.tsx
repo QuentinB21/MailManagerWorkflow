@@ -17,14 +17,15 @@ type Props = {
   onGenerateId: () => void
   onSimulate: (event: FormEvent) => void
   onRunWorkflow: () => void
+  embedded?: boolean
 }
 
-export function WorkflowTestView({ form, result, resultSource, busy, onFormChange, onGenerateId, onSimulate, onRunWorkflow }: Props) {
+export function WorkflowTestView({ form, result, resultSource, busy, onFormChange, onGenerateId, onSimulate, onRunWorkflow, embedded = false }: Props) {
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className={embedded ? 'classification-test' : 'page'}>
+      {!embedded && <div className="page-header">
         <div><p className="overline">Banc de test</p><h1>Tester le classement</h1><p>Envoyez un email fictif et observez précisément la décision du moteur.</p></div>
-      </div>
+      </div>}
 
       <div className="test-layout">
         <section className="surface test-form-card">

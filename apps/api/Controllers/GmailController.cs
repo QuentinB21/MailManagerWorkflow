@@ -20,43 +20,6 @@ public sealed class GmailController(
         CancellationToken cancellationToken) =>
         Ok(await configurationService.GetStatusAsync(cancellationToken));
 
-    [HttpPut("configuration")]
-    public async Task<ActionResult<GmailOAuthConfigurationResponse>> SaveConfiguration(
-        GmailOAuthConfigurationRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (await dbContext.MailboxConnections.AnyAsync(
-                mailbox => mailbox.EncryptedRefreshToken != null,
-                cancellationToken))
-        {
-            return Conflict(new { error = "Déconnectez d’abord la boîte Gmail avant de modifier la configuration OAuth." });
-        }
-
-        try
-        {
-            return Ok(await configurationService.SaveAsync(request, cancellationToken));
-        }
-        catch (GmailConfigurationException exception)
-        {
-            return BadRequest(new { error = exception.Message });
-        }
-    }
-
-    [HttpDelete("configuration")]
-    public async Task<IActionResult> DeleteConfiguration(CancellationToken cancellationToken)
-    {
-        if (await dbContext.MailboxConnections.AnyAsync(
-                mailbox => mailbox.EncryptedRefreshToken != null,
-                cancellationToken))
-        {
-            return Conflict(new { error = "Déconnectez d’abord la boîte Gmail avant de supprimer la configuration OAuth." });
-        }
-
-        return await configurationService.DeleteAsync(cancellationToken)
-            ? NoContent()
-            : NotFound();
-    }
-
     [HttpGet("oauth/authorize")]
     public async Task<IActionResult> Authorize(
         [FromQuery] Guid mailboxConnectionId,

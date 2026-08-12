@@ -57,7 +57,7 @@ PostgreSQL stocke :
 
 L'index unique `(MailboxConnectionId, ExternalMessageId)` constitue la barrière d'idempotence. Le sujet, l'expéditeur et le corps ne sont pas stockés dans l'historique. Les tableaux de critères sont des colonnes PostgreSQL `text[]`.
 
-Le client secret OAuth est stocké chiffré dans `GmailOAuthConfiguration` et le refresh token Gmail sur `MailboxConnection`. Les clés ASP.NET Core Data Protection vivent dans un volume Docker distinct afin qu’un rebuild de l’API ne rende pas ces données illisibles. Le Client ID peut être relu par l’interface, mais le secret n’est jamais renvoyé. Le corps et le sujet complet des emails Gmail ne sont jamais persistés.
+Le Client ID et le secret OAuth sont administrés dans l’environnement du serveur et ne sont jamais saisis ou renvoyés par React. Le refresh token Gmail est stocké chiffré sur `MailboxConnection`. Les clés ASP.NET Core Data Protection vivent dans un volume Docker distinct afin qu’un rebuild de l’API ne rende pas ce jeton illisible. Le corps et le sujet complet des emails Gmail ne sont jamais persistés.
 
 ### n8n
 
