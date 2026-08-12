@@ -50,7 +50,7 @@ export function RulesView({ rules, labels, form, editorOpen, editingId, pendingD
           <div className="rule-stack">
             {rules.map((rule) => (
               <article className={editingId === rule.id ? 'rule-item selected' : 'rule-item'} key={rule.id}>
-                <div className="rule-topline"><span className="priority-badge">P{rule.priority}</span><span className={rule.isActive ? 'status success' : 'status neutral'}>{rule.isActive ? 'Active' : 'Inactive'}</span><span className="mode-badge">{rule.matchMode}</span></div>
+                <div className="rule-topline"><span className="priority-badge"><small>Priorité</small>{rule.priority}</span><span className={rule.isActive ? 'status success' : 'status neutral'}>{rule.isActive ? 'Active' : 'Inactive'}</span><span className="mode-badge">{rule.matchMode === 'Any' ? 'Au moins un critère' : 'Tous les critères'}</span></div>
                 <h3>{rule.name}</h3><p className="destination">Vers <strong>{rule.destinationLabelName}</strong></p>
                 <div className="criteria-list">{criteriaFor(rule).map((criterion) => <span key={criterion}>{criterion}</span>)}</div>
                 {pendingDeleteId === rule.id ? (

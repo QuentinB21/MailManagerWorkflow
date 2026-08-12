@@ -21,7 +21,7 @@ export function AppShell({ activeView, mailbox, onNavigate, children }: Props) {
     <div className="app-shell">
       <header className="topbar">
         <button className="brand brand-button" type="button" onClick={() => onNavigate('classification')} aria-label="Ouvrir le classement">
-          <span className="brand-mark" aria-hidden="true">M</span>
+          <img className="brand-mark" src="/logo.svg" alt="" aria-hidden="true" />
           <div><strong>Mail Manager</strong><small>Classement automatique</small></div>
         </button>
 
