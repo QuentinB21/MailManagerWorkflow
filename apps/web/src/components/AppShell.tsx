@@ -26,8 +26,9 @@ export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox,
           <img className="brand-mark" src="/logo.svg" alt="" aria-hidden="true" />
           <div><strong>Mail Manager</strong><small>Classement automatique</small></div>
         </button>
-        <nav className="main-nav" aria-label="Navigation principale">
+        <nav className="main-nav" aria-label="Navigation principale" data-active={activeView}>
           {navItems.map((item) => <button key={item.id} type="button" className={activeView === item.id ? 'nav-item active' : 'nav-item'} onClick={() => onNavigate(item.id)} aria-current={activeView === item.id ? 'page' : undefined}><span className="nav-icon">{item.icon}</span><span className="nav-label desktop-label">{item.label}</span><span className="nav-label mobile-label">{item.mobileLabel}</span></button>)}
+          <span className="nav-indicator" aria-hidden="true" />
         </nav>
         <label className="mailbox-switcher">
           <span className="sr-only">Boîte active</span>
@@ -36,7 +37,7 @@ export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox,
           </select>
         </label>
       </header>
-      <main className="app-content">{children}</main>
+      <main className="app-content"><div className="view-frame" key={activeView}>{children}</div></main>
     </div>
   )
 }
