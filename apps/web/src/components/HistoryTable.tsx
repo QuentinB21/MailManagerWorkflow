@@ -11,11 +11,11 @@ export function HistoryTable({ logs, onRefresh, busy, compact }: Props) {
         <div className="table-wrap"><table>
           <thead><tr><th>Date</th><th>Message</th><th>Décision</th><th>Action fournisseur</th><th>Explication</th></tr></thead>
           <tbody>{visibleLogs.map((log) => <tr key={log.id}>
-            <td><span className="cell-primary">{new Date(log.processedAt).toLocaleDateString('fr-FR')}</span><small>{new Date(log.processedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></td>
-            <td className="message-cell" title={log.subjectPreview ?? 'Sujet indisponible'}><span className="message-subject">{log.subjectPreview ?? 'Sujet indisponible'}</span></td>
-            <td><span className={log.isClassified ? 'status success' : 'status neutral'}>{log.isClassified ? log.destinationLabelName : 'Non classé'}</span></td>
-            <td>{log.providerLabelAppliedAt ? <span className="status success">Destination appliquée</span> : log.providerActionError ? <span className="status error" title={log.providerActionError}>Échec fournisseur</span> : <span className="status neutral">Non demandée</span>}</td>
-            <td className="explanation-cell">{log.matchedCriteria.join(', ') || log.noMatchReason}</td>
+            <td data-label="Date"><span className="cell-primary">{new Date(log.processedAt).toLocaleDateString('fr-FR')}</span><small>{new Date(log.processedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></td>
+            <td data-label="Message" className="message-cell" title={log.subjectPreview ?? 'Sujet indisponible'}><span className="message-subject">{log.subjectPreview ?? 'Sujet indisponible'}</span></td>
+            <td data-label="Décision"><span className={log.isClassified ? 'status success' : 'status neutral'}>{log.isClassified ? log.destinationLabelName : 'Non classé'}</span></td>
+            <td data-label="Action"><span>{log.providerLabelAppliedAt ? <span className="status success">Destination appliquée</span> : log.providerActionError ? <span className="status error" title={log.providerActionError}>Échec fournisseur</span> : <span className="status neutral">Non demandée</span>}</span></td>
+            <td data-label="Explication" className="explanation-cell">{log.matchedCriteria.join(', ') || log.noMatchReason}</td>
           </tr>)}</tbody>
         </table></div>
       )}

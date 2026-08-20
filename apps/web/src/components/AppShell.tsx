@@ -12,10 +12,10 @@ type Props = {
   children: ReactNode
 }
 
-const navItems: Array<{ id: AppView; label: string }> = [
-  { id: 'classification', label: 'Classement' },
-  { id: 'activity', label: 'Activité' },
-  { id: 'settings', label: 'Paramètres' },
+const navItems: Array<{ id: AppView; label: string; mobileLabel: string; icon: ReactNode }> = [
+  { id: 'classification', label: 'Classement', mobileLabel: 'Classer', icon: <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7" /><path d="m16 16 2 2 3-4" /></svg> },
+  { id: 'activity', label: 'Activité', mobileLabel: 'Activité', icon: <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16h15" /><path d="m8 15 3-4 3 2 4-6" /></svg> },
+  { id: 'settings', label: 'Paramètres', mobileLabel: 'Boîtes', icon: <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="13" rx="2" /><path d="m5 8 7 5 7-5" /></svg> },
 ]
 
 export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox, onNavigate, children }: Props) {
@@ -27,7 +27,7 @@ export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox,
           <div><strong>Mail Manager</strong><small>Classement automatique</small></div>
         </button>
         <nav className="main-nav" aria-label="Navigation principale">
-          {navItems.map((item) => <button key={item.id} type="button" className={activeView === item.id ? 'nav-item active' : 'nav-item'} onClick={() => onNavigate(item.id)} aria-current={activeView === item.id ? 'page' : undefined}>{item.label}</button>)}
+          {navItems.map((item) => <button key={item.id} type="button" className={activeView === item.id ? 'nav-item active' : 'nav-item'} onClick={() => onNavigate(item.id)} aria-current={activeView === item.id ? 'page' : undefined}><span className="nav-icon">{item.icon}</span><span className="nav-label desktop-label">{item.label}</span><span className="nav-label mobile-label">{item.mobileLabel}</span></button>)}
         </nav>
         <label className="mailbox-switcher">
           <span className="sr-only">Boîte active</span>
