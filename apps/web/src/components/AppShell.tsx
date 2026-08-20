@@ -30,10 +30,9 @@ export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox,
           {navItems.map((item) => <button key={item.id} type="button" className={activeView === item.id ? 'nav-item active' : 'nav-item'} onClick={() => onNavigate(item.id)} aria-current={activeView === item.id ? 'page' : undefined}>{item.label}</button>)}
         </nav>
         <label className="mailbox-switcher">
-          <span className={mailbox?.isConnected ? 'connection-dot' : 'connection-dot offline'} />
           <span className="sr-only">Boîte active</span>
           <select value={mailbox?.id ?? ''} onChange={(event) => onSelectMailbox?.(event.target.value)} aria-label="Boîte active">
-            {mailboxes.map((item) => <option key={item.id} value={item.id}>{item.emailAddress ?? item.displayName} · {item.provider}</option>)}
+            {mailboxes.map((item) => <option key={item.id} value={item.id}>{item.emailAddress ?? item.displayName} · {item.provider}{item.requiresReconnect ? ' · Reconnexion nécessaire' : ''}</option>)}
           </select>
         </label>
       </header>

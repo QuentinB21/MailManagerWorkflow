@@ -117,6 +117,7 @@ public sealed class OutlookController(
         mailbox.GrantedScopes = null;
         mailbox.ConnectedAt = null;
         mailbox.LastSyncError = null;
+        mailbox.RequiresReconnect = false;
         var labels = await dbContext.LabelDefinitions
             .Where(label => label.MailboxConnectionId == mailboxConnectionId)
             .ToListAsync(cancellationToken);

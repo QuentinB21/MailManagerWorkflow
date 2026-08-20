@@ -42,11 +42,15 @@ export function MailboxConnectionView({
   const isGmail = provider === 'Gmail'
   const configuration = configurations[provider]
   const destinationName = isGmail ? 'label' : 'catégorie'
+  const isOperational = mailbox.isConnected && !mailbox.requiresReconnect
+  const connectionStatus = mailbox.requiresReconnect
+    ? 'reconnexion nécessaire'
+    : mailbox.isConnected ? 'connectée' : 'à connecter'
 
   return (
     <div className="page mailbox-page">
       <div className="page-header mailbox-settings-header">
-        <div><p className="overline">Comptes de messagerie</p><h1>Boîtes connectées</h1><p>Chaque boîte possède ses propres règles, destinations et historique.</p></div>
+        <div><h1>Boîtes connectées</h1><p>Chaque boîte possède ses propres règles, destinations et historique.</p></div>
         <div className="add-mailbox-actions">
           <button className="button secondary" type="button" disabled={busy} onClick={() => onAdd('Gmail')}>+ Gmail</button>
           <button className="button primary" type="button" disabled={busy} onClick={() => onAdd('Outlook')}>+ Outlook</button>
@@ -55,9 +59,9 @@ export function MailboxConnectionView({
 
       <div className="mailbox-tabs" role="tablist" aria-label="Boîtes configurées">
         {mailboxes.map((item) => (
-          <button key={item.id} role="tab" aria-selected={item.id === mailbox.id} className={item.id === mailbox.id ? 'mailbox-tab active' : 'mailbox-tab'} onClick={() => onSelect(item.id)}>
+          <button key={item.id} role="tab" aria-selected={item.id === mailbox.id} className={`${item.id === mailbox.id ? 'mailbox-tab active' : 'mailbox-tab'}${item.requiresReconnect ? ' reconnect' : ''}`} onClick={() => onSelect(item.id)}>
             <span className={`provider-dot ${item.provider.toLowerCase()}`} />
-            <span><strong>{item.emailAddress ?? item.displayName}</strong><small>{item.provider} · {item.isConnected ? 'connectée' : 'à connecter'}</small></span>
+            <span><strong>{item.emailAddress ?? item.displayName}</strong><small>{item.provider} · {item.requiresReconnect ? 'reconnexion nécessaire' : item.isConnected ? 'connectée' : 'à connecter'}</small></span>
           </button>
         ))}
       </div>
@@ -71,12 +75,14 @@ export function MailboxConnectionView({
       )}
 
       <div className="mailbox-grid">
-        <section className="surface connection-card">
+        <section className={`surface connection-card${mailbox.requiresReconnect ? ' reconnect-required' : ''}`}>
           <div className={isGmail ? 'provider-mark gmail' : 'provider-mark outlook'} aria-hidden="true">{isGmail ? 'M' : 'O'}</div>
           <div className="connection-card-main">
             <p className="overline">{provider}</p>
             <h2>{mailbox.emailAddress ?? `Aucun compte ${provider} connecté`}</h2>
-            <p>{mailbox.isConnected
+            <p>{mailbox.requiresReconnect
+              ? `L’autorisation ${provider} n’est plus valide. Reconnectez cette boîte pour reprendre le classement automatique.`
+              : mailbox.isConnected
               ? `Mail Manager surveille cette boîte et applique les ${destinationName}s décidés par ses règles.`
               : `La connexion utilise la page de consentement officielle ${isGmail ? 'Google' : 'Microsoft'}. Votre mot de passe n’est jamais transmis à Mail Manager.`}</p>
             <div className="connection-actions">
@@ -84,6 +90,15 @@ export function MailboxConnectionView({
                 <>
                   <button className="button primary" type="button" disabled={busy || !configuration?.isConfigured} onClick={onConnect}>Connecter ce compte {provider} →</button>
                   <button className="button text danger-text" type="button" disabled={busy} onClick={onDelete}>Supprimer cette entrée</button>
+                </>
+              ) : mailbox.requiresReconnect ? (
+                <>
+                  <button className="button primary" type="button" disabled={busy || !configuration?.isConfigured} onClick={onConnect}>Reconnecter ce compte {provider} →</button>
+                  {!confirmDisconnect ? (
+                    <button className="button text danger-text" type="button" disabled={busy} onClick={() => setConfirmDisconnect(true)}>Déconnecter</button>
+                  ) : (
+                    <div className="inline-confirm"><span>Révoquer l’accès ?</span><button className="button danger" type="button" disabled={busy} onClick={onDisconnect}>Confirmer</button><button className="button text" type="button" onClick={() => setConfirmDisconnect(false)}>Annuler</button></div>
+                  )}
                 </>
               ) : (
                 <>
@@ -104,6 +119,7 @@ export function MailboxConnectionView({
           <dl>
             <div><dt>Fournisseur</dt><dd>{provider}</dd></div>
             <div><dt>Configuration OAuth</dt><dd>{configuration?.isConfigured ? 'Prête' : 'À configurer'}</dd></div>
+            <div><dt>État de la connexion</dt><dd className={mailbox.requiresReconnect ? 'reconnect-state' : undefined}>{connectionStatus}</dd></div>
             <div><dt>Connectée le</dt><dd>{formatDate(mailbox.connectedAt)}</dd></div>
             <div><dt>Dernière synchronisation</dt><dd>{formatDate(mailbox.lastSyncAt)}</dd></div>
             <div><dt>Classement</dt><dd>{isGmail ? 'Labels Gmail' : 'Catégories Outlook'}</dd></div>
@@ -112,19 +128,19 @@ export function MailboxConnectionView({
         </aside>
       </div>
 
-      <section className={mailbox.isConnected ? 'surface real-sync-card' : 'surface real-sync-card disabled-section'}>
+      <section className={isOperational ? 'surface real-sync-card' : 'surface real-sync-card disabled-section'}>
         <div className="section-heading">
           <div><p className="overline">Classement automatique</p><h2>Surveillance des nouveaux emails</h2><p>n8n vérifie automatiquement cette boîte chaque minute. Le moteur utilise uniquement les règles rattachées à cette boîte.</p></div>
-          <div className={mailbox.isConnected ? 'automation-status active' : 'automation-status'}><span aria-hidden="true" />{mailbox.isConnected ? 'Surveillance active' : 'Connexion requise'}</div>
+          <div className={isOperational ? 'automation-status active' : mailbox.requiresReconnect ? 'automation-status reconnect' : 'automation-status'}><span aria-hidden="true" />{isOperational ? 'Surveillance active' : mailbox.requiresReconnect ? 'Reconnexion nécessaire' : 'Connexion requise'}</div>
         </div>
         <div className="manual-sync-row">
           <div><strong>Vérification immédiate</strong><p>Utile pour tester sans attendre le prochain passage automatique.</p></div>
           <div className="sync-controls">
             <label htmlFor="mailbox-max-results">Maximum</label>
-            <select id="mailbox-max-results" value={maxResults} disabled={!mailbox.isConnected || busy} onChange={(event) => setMaxResults(Number(event.target.value))}>
+            <select id="mailbox-max-results" value={maxResults} disabled={!isOperational || busy} onChange={(event) => setMaxResults(Number(event.target.value))}>
               {[1, 3, 5, 10, 20].map((value) => <option key={value} value={value}>{value} email{value > 1 ? 's' : ''}</option>)}
             </select>
-            <button className="button primary" type="button" disabled={!mailbox.isConnected || busy} onClick={() => onSync(maxResults)}>{busy ? 'Traitement…' : 'Vérifier maintenant →'}</button>
+            <button className="button primary" type="button" disabled={!isOperational || busy} onClick={() => onSync(maxResults)}>{busy ? 'Traitement…' : 'Vérifier maintenant →'}</button>
           </div>
         </div>
         <div className="privacy-note"><span aria-hidden="true">◆</span><p><strong>Confidentialité :</strong> le corps sert uniquement à la décision en mémoire. Il n’est jamais conservé en base.</p></div>

@@ -28,14 +28,29 @@ public sealed partial class OutlookMailboxService(
     {
         var mailbox = await GetMailboxAsync(mailboxConnectionId, false, cancellationToken);
         if (mailbox?.EncryptedRefreshToken is null) return null;
-        var accessToken = await oauthService.GetAccessTokenAsync(mailbox, cancellationToken);
-        var profile = await GetJsonAsync(
-            accessToken,
-            "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName",
-            cancellationToken);
-        var email = profile.TryGetProperty("mail", out var mail) ? mail.GetString() : null;
-        email ??= profile.TryGetProperty("userPrincipalName", out var upn) ? upn.GetString() : null;
-        return new MailboxConnectionTestResponse(true, email ?? mailbox.EmailAddress ?? string.Empty);
+        try
+        {
+            var accessToken = await oauthService.GetAccessTokenAsync(mailbox, cancellationToken);
+            var profile = await GetJsonAsync(
+                accessToken,
+                "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName",
+                cancellationToken);
+            var email = profile.TryGetProperty("mail", out var mail) ? mail.GetString() : null;
+            email ??= profile.TryGetProperty("userPrincipalName", out var upn) ? upn.GetString() : null;
+            mailbox.RequiresReconnect = false;
+            mailbox.LastSyncError = null;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return new MailboxConnectionTestResponse(true, email ?? mailbox.EmailAddress ?? string.Empty);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            mailbox.RequiresReconnect = ProviderAuthenticationFailureDetector.RequiresReconnect(exception);
+            mailbox.LastSyncError = mailbox.RequiresReconnect
+                ? ProviderAuthenticationFailureDetector.ReconnectMessage("Outlook")
+                : SafeError(exception);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<MailboxSyncResponse?> SyncAsync(
@@ -131,6 +146,7 @@ public sealed partial class OutlookMailboxService(
 
             mailbox.LastSyncAt = DateTimeOffset.UtcNow;
             mailbox.LastSyncError = null;
+            mailbox.RequiresReconnect = false;
             await dbContext.SaveChangesAsync(cancellationToken);
             return new MailboxSyncResponse(
                 maxResults,
@@ -145,7 +161,10 @@ public sealed partial class OutlookMailboxService(
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             mailbox.LastSyncAt = DateTimeOffset.UtcNow;
-            mailbox.LastSyncError = SafeError(exception);
+            mailbox.RequiresReconnect = ProviderAuthenticationFailureDetector.RequiresReconnect(exception);
+            mailbox.LastSyncError = mailbox.RequiresReconnect
+                ? ProviderAuthenticationFailureDetector.ReconnectMessage("Outlook")
+                : SafeError(exception);
             await dbContext.SaveChangesAsync(cancellationToken);
             throw;
         }

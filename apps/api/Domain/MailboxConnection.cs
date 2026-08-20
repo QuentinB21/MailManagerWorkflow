@@ -12,6 +12,7 @@ public sealed class MailboxConnection
     public DateTimeOffset? ConnectedAt { get; set; }
     public DateTimeOffset? LastSyncAt { get; set; }
     public string? LastSyncError { get; set; }
+    public bool RequiresReconnect { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public ICollection<LabelDefinition> Labels { get; set; } = [];

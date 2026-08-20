@@ -27,19 +27,34 @@ public sealed partial class GmailMailboxService(
         Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
-        var mailbox = await dbContext.MailboxConnections.AsNoTracking().FirstOrDefaultAsync(
+        var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
             item => item.Id == mailboxConnectionId && item.Provider == MailProvider.Gmail,
             cancellationToken);
         if (mailbox?.EncryptedRefreshToken is null) return null;
 
-        var accessToken = await oauthService.GetAccessTokenAsync(
-            mailbox.EncryptedRefreshToken,
-            cancellationToken);
-        var profile = await GetJsonAsync(
-            accessToken,
-            "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-            cancellationToken);
-        return new MailboxConnectionTestResponse(true, profile.GetProperty("emailAddress").GetString() ?? mailbox.EmailAddress ?? string.Empty);
+        try
+        {
+            var accessToken = await oauthService.GetAccessTokenAsync(
+                mailbox.EncryptedRefreshToken,
+                cancellationToken);
+            var profile = await GetJsonAsync(
+                accessToken,
+                "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+                cancellationToken);
+            mailbox.RequiresReconnect = false;
+            mailbox.LastSyncError = null;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return new MailboxConnectionTestResponse(true, profile.GetProperty("emailAddress").GetString() ?? mailbox.EmailAddress ?? string.Empty);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            mailbox.RequiresReconnect = ProviderAuthenticationFailureDetector.RequiresReconnect(exception);
+            mailbox.LastSyncError = mailbox.RequiresReconnect
+                ? ProviderAuthenticationFailureDetector.ReconnectMessage("Gmail")
+                : SafeError(exception);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            throw;
+        }
     }
 
     public Task<MailboxSyncResponse?> SyncAsync(
@@ -156,6 +171,7 @@ public sealed partial class GmailMailboxService(
 
             mailbox.LastSyncAt = DateTimeOffset.UtcNow;
             mailbox.LastSyncError = null;
+            mailbox.RequiresReconnect = false;
             await dbContext.SaveChangesAsync(cancellationToken);
 
             return new MailboxSyncResponse(
@@ -171,7 +187,10 @@ public sealed partial class GmailMailboxService(
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             mailbox.LastSyncAt = DateTimeOffset.UtcNow;
-            mailbox.LastSyncError = SafeError(exception);
+            mailbox.RequiresReconnect = ProviderAuthenticationFailureDetector.RequiresReconnect(exception);
+            mailbox.LastSyncError = mailbox.RequiresReconnect
+                ? ProviderAuthenticationFailureDetector.ReconnectMessage("Gmail")
+                : SafeError(exception);
             await dbContext.SaveChangesAsync(cancellationToken);
             throw;
         }

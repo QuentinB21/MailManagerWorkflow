@@ -119,6 +119,7 @@ public sealed class GmailOAuthService(
         mailbox.GrantedScopes = tokenPayload.Scope ?? GmailOptions.ModifyScope;
         mailbox.ConnectedAt = DateTimeOffset.UtcNow;
         mailbox.LastSyncError = null;
+        mailbox.RequiresReconnect = false;
         await dbContext.SaveChangesAsync(cancellationToken);
         return mailbox.Id;
     }

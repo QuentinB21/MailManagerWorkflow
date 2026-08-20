@@ -140,6 +140,7 @@ public sealed class GmailController(
         mailbox.GrantedScopes = null;
         mailbox.ConnectedAt = null;
         mailbox.LastSyncError = null;
+        mailbox.RequiresReconnect = false;
         var labels = await dbContext.LabelDefinitions
             .Where(label => label.MailboxConnectionId == mailboxConnectionId)
             .ToListAsync(cancellationToken);

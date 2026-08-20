@@ -94,6 +94,7 @@ public sealed class OutlookOAuthService(
         mailbox.GrantedScopes = token.Scope ?? OutlookOptions.Scopes;
         mailbox.ConnectedAt = DateTimeOffset.UtcNow;
         mailbox.LastSyncError = null;
+        mailbox.RequiresReconnect = false;
         await dbContext.SaveChangesAsync(cancellationToken);
         return mailbox.Id;
     }

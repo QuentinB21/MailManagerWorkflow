@@ -7,6 +7,7 @@ export type Mailbox = {
   isActive: boolean
   emailAddress?: string
   isConnected: boolean
+  requiresReconnect: boolean
   oAuthConfigured: boolean
   connectedAt?: string
   lastSyncAt?: string

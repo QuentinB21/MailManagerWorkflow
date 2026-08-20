@@ -22,7 +22,9 @@ public sealed class MailboxesController(
     {
         var mailboxes = await dbContext.MailboxConnections
             .AsNoTracking()
-            .Where(item => item.IsActive && item.EncryptedRefreshToken != null)
+            .Where(item => item.IsActive
+                && item.EncryptedRefreshToken != null
+                && !item.RequiresReconnect)
             .OrderBy(item => item.CreatedAt)
             .Select(item => new
             {
@@ -56,7 +58,8 @@ public sealed class MailboxesController(
                     : outlookConfigured,
                 x.ConnectedAt,
                 x.LastSyncAt,
-                x.LastSyncError
+                x.LastSyncError,
+                x.RequiresReconnect
             })
             .ToListAsync(cancellationToken);
         return Ok(mailboxes);
@@ -80,7 +83,8 @@ public sealed class MailboxesController(
             mailbox.DisplayName,
             mailbox.Provider,
             mailbox.IsActive,
-            IsConnected = false
+            IsConnected = false,
+            mailbox.RequiresReconnect
         });
     }
 
