@@ -3,7 +3,7 @@ import { api } from './api'
 import { AppShell, type AppView } from './components/AppShell'
 import { HistoryTable } from './components/HistoryTable'
 import { LabelsView, type LabelFormState } from './components/LabelsView'
-import { RulesView, type RuleFormState } from './components/RulesView'
+import { createRuleCondition, RulesView, type RuleCondition, type RuleFormState } from './components/RulesView'
 import { WorkflowTestView, type EmailFormState } from './components/WorkflowTestView'
 import { MailboxConnectionView } from './components/MailboxConnectionView'
 import type { ClassificationResult, GmailOAuthConfiguration, Label, Mailbox, MailboxSyncResult, MailProvider, ProcessingLog, ProviderConfiguration, Rule } from './types'
@@ -12,7 +12,13 @@ type ClassificationSection = 'rules' | 'destinations' | 'test'
 const splitValues = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean)
 const newExternalMessageId = () => `demo-${Date.now()}`
 const emptyLabelForm = (): LabelFormState => ({ name: '', color: '#4f46e5', isActive: true })
-const emptyRuleForm = (labelId = ''): RuleFormState => ({ name: '', destinationLabelId: labelId, priority: 10, isActive: true, matchMode: 'Any', senderAddresses: '', senderDomains: '', subjectKeywords: '', bodyKeywords: '' })
+const emptyRuleForm = (labelId = ''): RuleFormState => ({ name: '', destinationLabelId: labelId, priority: 10, isActive: true, matchMode: 'Any', conditions: [] })
+const ruleConditions = (rule: Rule): RuleCondition[] => [
+  ...rule.senderAddresses.map((value) => createRuleCondition('senderAddress', value)),
+  ...rule.senderDomains.map((value) => createRuleCondition('senderDomain', value)),
+  ...rule.subjectKeywords.map((value) => createRuleCondition('subjectKeyword', value)),
+  ...rule.bodyKeywords.map((value) => createRuleCondition('bodyKeyword', value)),
+]
 const defaultEmailForm = (): EmailFormState => ({ externalMessageId: newExternalMessageId(), sender: 'contact@client.fr', subject: 'Point hebdomadaire Projet Alpha', body: 'Bonjour, voici les prochaines étapes.' })
 
 function App() {
@@ -132,12 +138,13 @@ function App() {
     event.preventDefault(); if (!mailbox || !ruleForm.destinationLabelId) return
     setBusy(true); setError('')
     try {
-      const payload = { mailboxConnectionId: mailbox.id, destinationLabelId: ruleForm.destinationLabelId, name: ruleForm.name, priority: Number(ruleForm.priority), isActive: ruleForm.isActive, matchMode: ruleForm.matchMode, senderAddresses: splitValues(ruleForm.senderAddresses), senderDomains: splitValues(ruleForm.senderDomains), subjectKeywords: splitValues(ruleForm.subjectKeywords), bodyKeywords: splitValues(ruleForm.bodyKeywords) }
+      const valuesFor = (type: RuleCondition['type']) => ruleForm.conditions.filter((condition) => condition.type === type).flatMap((condition) => splitValues(condition.value))
+      const payload = { mailboxConnectionId: mailbox.id, destinationLabelId: ruleForm.destinationLabelId, name: ruleForm.name, priority: Number(ruleForm.priority), isActive: ruleForm.isActive, matchMode: ruleForm.matchMode, senderAddresses: valuesFor('senderAddress'), senderDomains: valuesFor('senderDomain'), subjectKeywords: valuesFor('subjectKeyword'), bodyKeywords: valuesFor('bodyKeyword') }
       if (editingRuleId) { await api.updateRule(editingRuleId, payload); setNotice('Règle modifiée avec succès.') } else { await api.createRule(payload); setNotice('Règle créée avec succès.') }
       setRules(await api.rules(mailbox.id)); cancelRuleEdit()
     } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
   }
-  function editRule(rule: Rule) { setEditingRuleId(rule.id); setPendingDeleteRuleId(undefined); setRuleForm({ name: rule.name, destinationLabelId: rule.destinationLabelId, priority: rule.priority, isActive: rule.isActive, matchMode: rule.matchMode, senderAddresses: rule.senderAddresses.join(', '), senderDomains: rule.senderDomains.join(', '), subjectKeywords: rule.subjectKeywords.join(', '), bodyKeywords: rule.bodyKeywords.join(', ') }); setRuleEditorOpen(true) }
+  function editRule(rule: Rule) { setEditingRuleId(rule.id); setPendingDeleteRuleId(undefined); setRuleForm({ name: rule.name, destinationLabelId: rule.destinationLabelId, priority: rule.priority, isActive: rule.isActive, matchMode: rule.matchMode, conditions: ruleConditions(rule) }); setRuleEditorOpen(true) }
   function createRule() { setEditingRuleId(undefined); setPendingDeleteRuleId(undefined); setRuleForm(emptyRuleForm(firstAvailableLabelId)); setRuleEditorOpen(true) }
   function cancelRuleEdit() { setEditingRuleId(undefined); setRuleForm(emptyRuleForm(firstAvailableLabelId)); setRuleEditorOpen(false) }
   async function toggleRule(rule: Rule) { setBusy(true); setError(''); try { const { id, destinationLabelName: _, ...payload } = rule; await api.updateRule(id, { ...payload, isActive: !rule.isActive }); if (mailbox) setRules(await api.rules(mailbox.id)); setNotice(rule.isActive ? 'Règle désactivée.' : 'Règle activée.') } catch (err) { setError((err as Error).message) } finally { setBusy(false) } }
