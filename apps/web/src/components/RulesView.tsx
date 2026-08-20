@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import type { Label, MatchMode, Rule } from '../types'
 import { EditorModal } from './EditorModal'
 
@@ -38,10 +38,10 @@ type Props = {
 }
 
 const criteriaFor = (rule: Rule) => [
-  ...rule.senderAddresses.map((value) => `De · ${value}`),
-  ...rule.senderDomains.map((value) => `Domaine · ${value}`),
-  ...rule.subjectKeywords.map((value) => `Sujet · ${value}`),
-  ...rule.bodyKeywords.map((value) => `Corps · ${value}`),
+  ...rule.senderAddresses.map((value) => ({ field: 'Expéditeur', comparison: 'est', value })),
+  ...rule.senderDomains.map((value) => ({ field: 'Expéditeur', comparison: 'se termine par', value: `@${value.replace(/^@/, '')}` })),
+  ...rule.subjectKeywords.map((value) => ({ field: 'Sujet', comparison: 'contient', value })),
+  ...rule.bodyKeywords.map((value) => ({ field: 'Message', comparison: 'contient', value })),
 ]
 
 const conditionOptions: Array<{
@@ -67,6 +67,7 @@ export const createRuleCondition = (type: RuleConditionType, value = ''): RuleCo
 
 export function RulesView({ rules, labels, form, editorOpen, editingId, pendingDeleteId, busy, onFormChange, onCreate, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
   const [conditionPickerOpen, setConditionPickerOpen] = useState(false)
+  const [expandedRuleIds, setExpandedRuleIds] = useState<string[]>([])
 
   useEffect(() => {
     if (!editorOpen) setConditionPickerOpen(false)
@@ -85,6 +86,10 @@ export function RulesView({ rules, labels, form, editorOpen, editingId, pendingD
     onFormChange({ ...form, conditions: form.conditions.filter((condition) => condition.id !== id) })
   }
 
+  function toggleRuleDetails(id: string) {
+    setExpandedRuleIds((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id])
+  }
+
   const hasIncompleteCondition = form.conditions.some((condition) => !condition.value.trim())
 
   return (
@@ -94,19 +99,52 @@ export function RulesView({ rules, labels, form, editorOpen, editingId, pendingD
         {rules.length === 0 ? (
           <div className="empty-state"><span className="empty-icon">R</span><h3>Aucune règle</h3><p>{labels.length === 0 ? 'Créez d’abord une destination, puis définissez les emails qui doivent y être classés.' : 'Ajoutez au moins un critère pour commencer le classement.'}</p>{labels.length > 0 && <button className="button primary" type="button" onClick={onCreate}>Ajouter une règle</button>}</div>
         ) : (
-          <div className="rule-stack">
-            {rules.map((rule) => (
-              <article className={editingId === rule.id ? 'rule-item selected' : 'rule-item'} key={rule.id}>
-                <div className="rule-topline"><span className="priority-badge"><small>Priorité</small>{rule.priority}</span><span className={rule.isActive ? 'status success' : 'status neutral'}>{rule.isActive ? 'Active' : 'Inactive'}</span><span className="mode-badge">{rule.matchMode === 'Any' ? 'Au moins un critère' : 'Tous les critères'}</span></div>
-                <h3>{rule.name}</h3><p className="destination">Vers <strong>{rule.destinationLabelName}</strong></p>
-                <div className="criteria-list">{criteriaFor(rule).map((criterion) => <span key={criterion}>{criterion}</span>)}</div>
-                {pendingDeleteId === rule.id ? (
-                  <div className="inline-confirm"><span>Supprimer cette règle ?</span><button className="button danger small" onClick={() => onDelete(rule)} disabled={busy}>Supprimer</button><button className="button ghost small" onClick={() => onRequestDelete()}>Annuler</button></div>
-                ) : (
-                  <div className="resource-actions"><button className="text-action" onClick={() => onEdit(rule)}>Modifier</button><button className="text-action" onClick={() => onToggle(rule)} disabled={busy}>{rule.isActive ? 'Désactiver' : 'Activer'}</button><button className="text-action danger-text" onClick={() => onRequestDelete(rule.id)} disabled={busy}>Supprimer</button></div>
-                )}
-              </article>
-            ))}
+          <div className="rule-grid">
+            {rules.map((rule) => {
+              const criteria = criteriaFor(rule)
+              const destination = labels.find((label) => label.id === rule.destinationLabelId)
+              const isExpanded = expandedRuleIds.includes(rule.id)
+              const detailsId = `rule-details-${rule.id}`
+              return (
+                <article className={`rule-card${editingId === rule.id ? ' selected' : ''}${rule.isActive ? '' : ' inactive'}`} key={rule.id}>
+                  <div className="rule-summary">
+                    <div className="rule-summary-identity"><h3>{rule.name}</h3><span className={rule.isActive ? 'status success' : 'status neutral'}>{rule.isActive ? 'Active' : 'Inactive'}</span></div>
+                    <span className="rule-priority"><small>Priorité</small><strong>{rule.priority}</strong></span>
+                    {pendingDeleteId === rule.id ? (
+                      <div className="inline-confirm rule-summary-confirm"><span>Supprimer cette règle ?</span><button className="button danger small" onClick={() => onDelete(rule)} disabled={busy}>Supprimer</button><button className="button ghost small" onClick={() => onRequestDelete()}>Annuler</button></div>
+                    ) : (
+                      <div className="resource-actions"><button className="text-action" onClick={() => onEdit(rule)}>Modifier</button><button className="text-action" onClick={() => onToggle(rule)} disabled={busy}>{rule.isActive ? 'Désactiver' : 'Activer'}</button><button className="text-action danger-text" onClick={() => onRequestDelete(rule.id)} disabled={busy}>Supprimer</button></div>
+                    )}
+                    <button className={`rule-expand${isExpanded ? ' expanded' : ''}`} type="button" aria-expanded={isExpanded} aria-controls={detailsId} aria-label={`${isExpanded ? 'Masquer' : 'Afficher'} les détails de la règle « ${rule.name} »`} onClick={() => toggleRuleDetails(rule.id)}>
+                      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" /></svg>
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="rule-decision" id={detailsId}>
+                      <div className="rule-when-heading">
+                        <span className="decision-marker">Si</span>
+                        <div><strong>{rule.matchMode === 'Any' ? 'Une condition suffit' : 'Toutes les conditions'}</strong><small>{rule.matchMode === 'Any' ? 'Le premier critère reconnu déclenche la règle.' : 'Chaque critère doit être reconnu dans le même email.'}</small></div>
+                      </div>
+                      <div className="rule-criteria-flow">
+                        {criteria.map((criterion, index) => (
+                          <div className="criterion-group" key={`${criterion.field}-${criterion.value}-${index}`}>
+                            {index > 0 && <span className="criterion-joiner">{rule.matchMode === 'Any' ? 'ou' : 'et'}</span>}
+                            <div className="criterion-line"><span>{criterion.field}</span><small>{criterion.comparison}</small><code>{criterion.value}</code></div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="decision-connector"><span /><small>alors</small><span /></div>
+
+                      <div className="rule-destination" style={{ '--destination-color': destination?.color ?? '#c64a2f' } as CSSProperties}>
+                        <span className="destination-swatch" aria-hidden="true" /><div><small>Classer dans</small><strong>{rule.destinationLabelName}</strong></div>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              )
+            })}
           </div>
         )}
       </section>
