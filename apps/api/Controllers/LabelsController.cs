@@ -1,6 +1,7 @@
 using MailManager.Api.Contracts;
 using MailManager.Api.Data;
 using MailManager.Api.Domain;
+using MailManager.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +9,10 @@ namespace MailManager.Api.Controllers;
 
 [ApiController]
 [Route("api/labels")]
-public sealed class LabelsController(MailManagerDbContext dbContext) : ControllerBase
+public sealed class LabelsController(
+    MailManagerDbContext dbContext,
+    MailboxProviderResolver providerResolver,
+    ILogger<LabelsController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyCollection<LabelResponse>>> GetAll(
@@ -38,7 +42,10 @@ public sealed class LabelsController(MailManagerDbContext dbContext) : Controlle
         LabelRequest request,
         CancellationToken cancellationToken)
     {
-        if (!await MailboxExists(request.MailboxConnectionId, cancellationToken))
+        var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
+            item => item.Id == request.MailboxConnectionId,
+            cancellationToken);
+        if (mailbox is null)
         {
             return BadRequest(new { error = "MailboxConnectionId inconnu." });
         }
@@ -56,18 +63,30 @@ public sealed class LabelsController(MailManagerDbContext dbContext) : Controlle
             return Conflict(new { error = "Un label de ce nom existe déjà pour cette boîte." });
         }
 
+        var requestedColor = NullIfEmpty(request.Color);
+        var color = ProviderColorMapper.NormalizeHexColor(requestedColor);
+        if (requestedColor is not null && color is null)
+        {
+            return BadRequest(new { error = "La couleur doit être au format hexadécimal #RRGGBB." });
+        }
+
         var label = new LabelDefinition
         {
             Id = Guid.NewGuid(),
             MailboxConnectionId = request.MailboxConnectionId,
             Name = name,
             ExternalLabelId = NullIfEmpty(request.ExternalLabelId),
-            Color = NullIfEmpty(request.Color),
+            Color = color,
             IsActive = request.IsActive
         };
 
         dbContext.LabelDefinitions.Add(label);
         await dbContext.SaveChangesAsync(cancellationToken);
+        var synchronizationError = await SynchronizeIfConnectedAsync(mailbox, label, cancellationToken);
+        if (synchronizationError is not null)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = synchronizationError });
+        }
         return CreatedAtAction(nameof(GetById), new { id = label.Id }, ToResponse(label));
     }
 
@@ -101,13 +120,28 @@ public sealed class LabelsController(MailManagerDbContext dbContext) : Controlle
             return Conflict(new { error = "Un label de ce nom existe déjà pour cette boîte." });
         }
 
+        var requestedColor = NullIfEmpty(request.Color);
+        var color = ProviderColorMapper.NormalizeHexColor(requestedColor);
+        if (requestedColor is not null && color is null)
+        {
+            return BadRequest(new { error = "La couleur doit être au format hexadécimal #RRGGBB." });
+        }
+
         var nameChanged = !string.Equals(label.Name, name, StringComparison.Ordinal);
         label.Name = name;
         // Provider destination identifiers point to the old name and must be resolved again.
         label.ExternalLabelId = nameChanged ? null : NullIfEmpty(request.ExternalLabelId);
-        label.Color = NullIfEmpty(request.Color);
+        label.Color = color;
         label.IsActive = request.IsActive;
         await dbContext.SaveChangesAsync(cancellationToken);
+        var mailbox = await dbContext.MailboxConnections.FirstAsync(
+            item => item.Id == label.MailboxConnectionId,
+            cancellationToken);
+        var synchronizationError = await SynchronizeIfConnectedAsync(mailbox, label, cancellationToken);
+        if (synchronizationError is not null)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { error = synchronizationError });
+        }
         return Ok(ToResponse(label));
     }
 
@@ -130,8 +164,37 @@ public sealed class LabelsController(MailManagerDbContext dbContext) : Controlle
         return NoContent();
     }
 
-    private Task<bool> MailboxExists(Guid id, CancellationToken cancellationToken) =>
-        dbContext.MailboxConnections.AnyAsync(x => x.Id == id, cancellationToken);
+    private async Task<string?> SynchronizeIfConnectedAsync(
+        MailboxConnection mailbox,
+        LabelDefinition label,
+        CancellationToken cancellationToken)
+    {
+        if (!label.IsActive || string.IsNullOrWhiteSpace(mailbox.EncryptedRefreshToken)) return null;
+
+        try
+        {
+            await providerResolver.Resolve(mailbox.Provider)
+                .SynchronizeDestinationAsync(label.Id, cancellationToken);
+            mailbox.LastSyncError = null;
+            mailbox.RequiresReconnect = false;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                exception,
+                "Impossible de synchroniser la destination {LabelId} avec {Provider}.",
+                label.Id,
+                mailbox.Provider);
+            mailbox.RequiresReconnect = ProviderAuthenticationFailureDetector.RequiresReconnect(exception);
+            mailbox.LastSyncError = mailbox.RequiresReconnect
+                ? ProviderAuthenticationFailureDetector.ReconnectMessage(mailbox.Provider.ToString())
+                : $"La destination est enregistrée, mais sa synchronisation avec {mailbox.Provider} a échoué.";
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return mailbox.LastSyncError;
+        }
+    }
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

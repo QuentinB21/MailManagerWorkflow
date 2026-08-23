@@ -7,6 +7,7 @@ public interface IMailboxProviderAdapter
 {
     MailProvider Provider { get; }
     Task<MailboxConnectionTestResponse?> TestConnectionAsync(Guid mailboxConnectionId, CancellationToken cancellationToken);
+    Task<bool> SynchronizeDestinationAsync(Guid labelDefinitionId, CancellationToken cancellationToken);
     Task<MailboxSyncResponse?> SyncAsync(Guid mailboxConnectionId, int maxResults, CancellationToken cancellationToken);
 }
 

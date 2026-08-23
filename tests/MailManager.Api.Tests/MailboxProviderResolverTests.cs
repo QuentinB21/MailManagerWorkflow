@@ -21,6 +21,7 @@ public sealed class MailboxProviderResolverTests
     {
         public MailProvider Provider { get; } = provider;
         public Task<MailboxConnectionTestResponse?> TestConnectionAsync(Guid mailboxConnectionId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<bool> SynchronizeDestinationAsync(Guid labelDefinitionId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<MailboxSyncResponse?> SyncAsync(Guid mailboxConnectionId, int maxResults, CancellationToken cancellationToken) => throw new NotImplementedException();
     }
 }

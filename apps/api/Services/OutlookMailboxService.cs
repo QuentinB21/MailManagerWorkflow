@@ -22,6 +22,25 @@ public sealed partial class OutlookMailboxService(
     private const int MaximumBodyLength = 50_000;
     public MailProvider Provider => MailProvider.Outlook;
 
+    public async Task<bool> SynchronizeDestinationAsync(
+        Guid labelDefinitionId,
+        CancellationToken cancellationToken)
+    {
+        var label = await dbContext.LabelDefinitions
+            .Include(item => item.MailboxConnection)
+            .FirstOrDefaultAsync(
+                item => item.Id == labelDefinitionId
+                    && item.IsActive
+                    && item.MailboxConnection != null
+                    && item.MailboxConnection.Provider == MailProvider.Outlook,
+                cancellationToken);
+        if (label?.MailboxConnection?.EncryptedRefreshToken is null) return false;
+
+        var accessToken = await oauthService.GetAccessTokenAsync(label.MailboxConnection, cancellationToken);
+        await EnsureOutlookCategoryAsync(accessToken, labelDefinitionId, cancellationToken);
+        return true;
+    }
+
     public async Task<MailboxConnectionTestResponse?> TestConnectionAsync(
         Guid mailboxConnectionId,
         CancellationToken cancellationToken)
@@ -64,6 +83,10 @@ public sealed partial class OutlookMailboxService(
         try
         {
             var accessToken = await oauthService.GetAccessTokenAsync(mailbox, cancellationToken);
+            await SynchronizeActiveDestinationsAsync(
+                accessToken,
+                mailboxConnectionId,
+                cancellationToken);
             var messages = await ListNewInboxMessagesAsync(
                 accessToken,
                 mailbox.ConnectedAt ?? DateTimeOffset.UtcNow,
@@ -215,16 +238,22 @@ public sealed partial class OutlookMailboxService(
     private async Task<string> EnsureOutlookCategoryAsync(
         string accessToken,
         Guid labelDefinitionId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        JsonElement[]? knownCategories = null)
     {
         var label = await dbContext.LabelDefinitions.FirstOrDefaultAsync(
             item => item.Id == labelDefinitionId && item.IsActive,
             cancellationToken) ?? throw new InvalidOperationException("La destination est introuvable ou inactive.");
-        var payload = await GetJsonAsync(
-            accessToken,
-            "https://graph.microsoft.com/v1.0/me/outlook/masterCategories?$select=id,displayName",
-            cancellationToken);
-        var categories = payload.GetProperty("value").EnumerateArray().ToArray();
+        var categories = knownCategories;
+        if (categories is null)
+        {
+            var payload = await GetJsonAsync(
+                accessToken,
+                "https://graph.microsoft.com/v1.0/me/outlook/masterCategories?$select=id,displayName,color",
+                cancellationToken);
+            categories = payload.GetProperty("value").EnumerateArray().ToArray();
+        }
+        var desiredColor = ProviderColorMapper.ToOutlookPreset(label.Color);
         var existing = categories.FirstOrDefault(category =>
             string.Equals(category.GetProperty("displayName").GetString(), label.Name, StringComparison.OrdinalIgnoreCase));
         if (existing.ValueKind == JsonValueKind.Undefined)
@@ -233,16 +262,53 @@ public sealed partial class OutlookMailboxService(
                 accessToken,
                 HttpMethod.Post,
                 "https://graph.microsoft.com/v1.0/me/outlook/masterCategories",
-                new { displayName = label.Name, color = "preset0" },
+                new { displayName = label.Name, color = desiredColor },
                 cancellationToken);
             label.ExternalLabelId = created.GetProperty("id").GetString();
         }
         else
         {
             label.ExternalLabelId = existing.GetProperty("id").GetString();
+            var currentColor = existing.TryGetProperty("color", out var color) ? color.GetString() : null;
+            if (!string.Equals(currentColor, desiredColor, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(label.ExternalLabelId))
+            {
+                await SendJsonAsync(
+                    accessToken,
+                    HttpMethod.Patch,
+                    $"https://graph.microsoft.com/v1.0/me/outlook/masterCategories/{Uri.EscapeDataString(label.ExternalLabelId)}",
+                    new { color = desiredColor },
+                    cancellationToken);
+            }
         }
         await dbContext.SaveChangesAsync(cancellationToken);
         return label.Name;
+    }
+
+    private async Task SynchronizeActiveDestinationsAsync(
+        string accessToken,
+        Guid mailboxConnectionId,
+        CancellationToken cancellationToken)
+    {
+        var labelIds = await dbContext.LabelDefinitions
+            .Where(item => item.MailboxConnectionId == mailboxConnectionId && item.IsActive)
+            .Select(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+        if (labelIds.Length == 0) return;
+
+        var payload = await GetJsonAsync(
+            accessToken,
+            "https://graph.microsoft.com/v1.0/me/outlook/masterCategories?$select=id,displayName,color",
+            cancellationToken);
+        var categories = payload.GetProperty("value").EnumerateArray().ToArray();
+        foreach (var labelId in labelIds)
+        {
+            await EnsureOutlookCategoryAsync(
+                accessToken,
+                labelId,
+                cancellationToken,
+                categories);
+        }
     }
 
     private async Task ApplyCategoryAsync(

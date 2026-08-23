@@ -23,6 +23,27 @@ public sealed partial class GmailMailboxService(
 
     public MailProvider Provider => MailProvider.Gmail;
 
+    public async Task<bool> SynchronizeDestinationAsync(
+        Guid labelDefinitionId,
+        CancellationToken cancellationToken)
+    {
+        var label = await dbContext.LabelDefinitions
+            .Include(item => item.MailboxConnection)
+            .FirstOrDefaultAsync(
+                item => item.Id == labelDefinitionId
+                    && item.IsActive
+                    && item.MailboxConnection != null
+                    && item.MailboxConnection.Provider == MailProvider.Gmail,
+                cancellationToken);
+        if (label?.MailboxConnection?.EncryptedRefreshToken is null) return false;
+
+        var accessToken = await oauthService.GetAccessTokenAsync(
+            label.MailboxConnection.EncryptedRefreshToken,
+            cancellationToken);
+        await EnsureGmailLabelAsync(accessToken, labelDefinitionId, cancellationToken);
+        return true;
+    }
+
     public async Task<MailboxConnectionTestResponse?> TestConnectionAsync(
         Guid mailboxConnectionId,
         CancellationToken cancellationToken)
@@ -79,6 +100,10 @@ public sealed partial class GmailMailboxService(
         {
             var accessToken = await oauthService.GetAccessTokenAsync(
                 mailbox.EncryptedRefreshToken,
+                cancellationToken);
+            await SynchronizeActiveDestinationsAsync(
+                accessToken,
+                mailboxConnectionId,
                 cancellationToken);
             await BackfillMissingSubjectPreviewsAsync(
                 accessToken,
@@ -288,17 +313,22 @@ public sealed partial class GmailMailboxService(
     private async Task<string> EnsureGmailLabelAsync(
         string accessToken,
         Guid labelDefinitionId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        JsonElement[]? knownGmailLabels = null)
     {
         var label = await dbContext.LabelDefinitions.FirstOrDefaultAsync(
             item => item.Id == labelDefinitionId && item.IsActive,
             cancellationToken) ?? throw new InvalidOperationException("Le label de destination est introuvable ou inactif.");
 
-        var labelsPayload = await GetJsonAsync(
-            accessToken,
-            "https://gmail.googleapis.com/gmail/v1/users/me/labels",
-            cancellationToken);
-        var gmailLabels = labelsPayload.GetProperty("labels").EnumerateArray().ToArray();
+        var gmailLabels = knownGmailLabels;
+        if (gmailLabels is null)
+        {
+            var labelsPayload = await GetJsonAsync(
+                accessToken,
+                "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+                cancellationToken);
+            gmailLabels = labelsPayload.GetProperty("labels").EnumerateArray().ToArray();
+        }
 
         // A cached Gmail ID can become stale if the label is renamed or deleted in Gmail.
         // The local label name remains the source of truth.
@@ -306,31 +336,117 @@ public sealed partial class GmailMailboxService(
             !string.IsNullOrWhiteSpace(label.ExternalLabelId)
             && string.Equals(item.GetProperty("id").GetString(), label.ExternalLabelId, StringComparison.Ordinal)
             && string.Equals(item.GetProperty("name").GetString(), label.Name, StringComparison.OrdinalIgnoreCase));
-        if (cached.ValueKind != JsonValueKind.Undefined) return label.ExternalLabelId!;
+        var desiredColor = ProviderColorMapper.ToGmail(label.Color);
+        if (cached.ValueKind != JsonValueKind.Undefined)
+        {
+            await SynchronizeGmailLabelColorAsync(
+                accessToken,
+                label.ExternalLabelId!,
+                cached,
+                desiredColor,
+                cancellationToken);
+            return label.ExternalLabelId!;
+        }
 
         var existing = gmailLabels.FirstOrDefault(
             item => string.Equals(item.GetProperty("name").GetString(), label.Name, StringComparison.OrdinalIgnoreCase));
-        var externalLabelId = existing.ValueKind == JsonValueKind.Undefined
-            ? await CreateGmailLabelAsync(accessToken, label.Name, cancellationToken)
-            : existing.GetProperty("id").GetString();
+        string? externalLabelId;
+        if (existing.ValueKind == JsonValueKind.Undefined)
+        {
+            externalLabelId = await CreateGmailLabelAsync(accessToken, label.Name, desiredColor, cancellationToken);
+        }
+        else
+        {
+            externalLabelId = existing.GetProperty("id").GetString();
+            if (!string.IsNullOrWhiteSpace(externalLabelId))
+            {
+                await SynchronizeGmailLabelColorAsync(
+                    accessToken,
+                    externalLabelId,
+                    existing,
+                    desiredColor,
+                    cancellationToken);
+            }
+        }
         label.ExternalLabelId = externalLabelId
             ?? throw new GmailApiException("Google n’a pas retourné l’identifiant du label.");
         await dbContext.SaveChangesAsync(cancellationToken);
         return label.ExternalLabelId;
     }
 
+    private async Task SynchronizeActiveDestinationsAsync(
+        string accessToken,
+        Guid mailboxConnectionId,
+        CancellationToken cancellationToken)
+    {
+        var labelIds = await dbContext.LabelDefinitions
+            .Where(item => item.MailboxConnectionId == mailboxConnectionId && item.IsActive)
+            .Select(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+        if (labelIds.Length == 0) return;
+
+        var labelsPayload = await GetJsonAsync(
+            accessToken,
+            "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+            cancellationToken);
+        var gmailLabels = labelsPayload.GetProperty("labels").EnumerateArray().ToArray();
+        foreach (var labelId in labelIds)
+        {
+            await EnsureGmailLabelAsync(
+                accessToken,
+                labelId,
+                cancellationToken,
+                gmailLabels);
+        }
+    }
+
     private async Task<string?> CreateGmailLabelAsync(
         string accessToken,
         string name,
+        GmailLabelColor? color,
         CancellationToken cancellationToken)
     {
+        var body = new Dictionary<string, object?>
+        {
+            ["name"] = name,
+            ["labelListVisibility"] = "labelShow",
+            ["messageListVisibility"] = "show"
+        };
+        if (color is GmailLabelColor selected)
+        {
+            body["color"] = new { textColor = selected.TextColor, backgroundColor = selected.BackgroundColor };
+        }
+
         var payload = await SendJsonAsync(
             accessToken,
             HttpMethod.Post,
             "https://gmail.googleapis.com/gmail/v1/users/me/labels",
-            new { name, labelListVisibility = "labelShow", messageListVisibility = "show" },
+            body,
             cancellationToken);
         return payload.GetProperty("id").GetString();
+    }
+
+    private async Task SynchronizeGmailLabelColorAsync(
+        string accessToken,
+        string externalLabelId,
+        JsonElement providerLabel,
+        GmailLabelColor? desiredColor,
+        CancellationToken cancellationToken)
+    {
+        if (desiredColor is not GmailLabelColor selected) return;
+        var isCurrent = providerLabel.TryGetProperty("color", out var current)
+            && current.TryGetProperty("textColor", out var currentText)
+            && current.TryGetProperty("backgroundColor", out var currentBackground)
+            && string.Equals(currentText.GetString(), selected.TextColor, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(currentBackground.GetString(), selected.BackgroundColor, StringComparison.OrdinalIgnoreCase);
+        if (isCurrent) return;
+
+        await SendJsonAsync(
+            accessToken,
+            HttpMethod.Patch,
+            $"https://gmail.googleapis.com/gmail/v1/users/me/labels/{Uri.EscapeDataString(externalLabelId)}",
+            new { color = new { textColor = selected.TextColor, backgroundColor = selected.BackgroundColor } },
+            cancellationToken);
     }
 
     private async Task ApplyLabelAsync(
