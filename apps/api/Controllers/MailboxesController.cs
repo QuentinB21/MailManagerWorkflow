@@ -3,6 +3,8 @@ using MailManager.Api.Contracts;
 using MailManager.Api.Data;
 using MailManager.Api.Domain;
 using MailManager.Api.Services;
+using MailManager.Api.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -15,13 +17,15 @@ public sealed class MailboxesController(
     MailManagerDbContext dbContext,
     GmailOAuthConfigurationService gmailConfigurationService,
     IOptions<OutlookOptions> outlookOptions,
-    MailboxProviderResolver providerResolver) : ControllerBase
+    MailboxProviderResolver providerResolver,
+    MailboxAccessService mailboxAccess,
+    CurrentUser currentUser) : ControllerBase
 {
+    [Authorize(Policy = AuthorizationPolicies.Automation)]
     [HttpGet("automation-targets")]
     public async Task<IActionResult> GetAutomationTargets(CancellationToken cancellationToken)
     {
-        var mailboxes = await dbContext.MailboxConnections
-            .AsNoTracking()
+        var mailboxes = await mailboxAccess.OwnedMailboxes()
             .Where(item => item.IsActive
                 && item.EncryptedRefreshToken != null
                 && !item.RequiresReconnect)
@@ -42,8 +46,7 @@ public sealed class MailboxesController(
     {
         var gmailConfiguration = await gmailConfigurationService.GetStatusAsync(cancellationToken);
         var outlookConfigured = outlookOptions.Value.IsConfigured;
-        var mailboxes = await dbContext.MailboxConnections
-            .AsNoTracking()
+        var mailboxes = await mailboxAccess.OwnedMailboxes()
             .OrderBy(x => x.CreatedAt)
             .Select(x => new
             {
@@ -68,9 +71,11 @@ public sealed class MailboxesController(
     [HttpPost]
     public async Task<IActionResult> Create(CreateMailboxRequest request, CancellationToken cancellationToken)
     {
+        if (currentUser.IsDemo) return Forbid();
         var mailbox = new MailboxConnection
         {
             Id = Guid.NewGuid(),
+            OwnerSubject = currentUser.Subject,
             Provider = request.Provider,
             DisplayName = request.Provider == MailProvider.Gmail ? "Nouveau compte Gmail" : "Nouveau compte Outlook",
             IsActive = true
@@ -94,9 +99,8 @@ public sealed class MailboxesController(
         MailboxSyncRequest request,
         CancellationToken cancellationToken)
     {
-        var mailbox = await dbContext.MailboxConnections.AsNoTracking().FirstOrDefaultAsync(
-            item => item.Id == mailboxConnectionId,
-            cancellationToken);
+        if (currentUser.IsDemo) return Forbid();
+        var mailbox = await mailboxAccess.FindAsync(mailboxConnectionId, tracking: false, cancellationToken);
         if (mailbox is null) return NotFound(new { error = "Boîte mail introuvable." });
         try
         {
@@ -119,15 +123,14 @@ public sealed class MailboxesController(
     [HttpDelete("{mailboxConnectionId:guid}")]
     public async Task<IActionResult> Delete(Guid mailboxConnectionId, CancellationToken cancellationToken)
     {
-        var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
-            item => item.Id == mailboxConnectionId,
-            cancellationToken);
+        if (currentUser.IsDemo) return Forbid();
+        var mailbox = await mailboxAccess.FindAsync(mailboxConnectionId, tracking: true, cancellationToken);
         if (mailbox is null) return NotFound();
         if (mailbox.EncryptedRefreshToken is not null)
         {
             return Conflict(new { error = "Déconnectez la boîte avant de la supprimer." });
         }
-        if (await dbContext.MailboxConnections.CountAsync(cancellationToken) <= 1)
+        if (await mailboxAccess.OwnedMailboxes().CountAsync(cancellationToken) <= 1)
         {
             return Conflict(new { error = "La dernière boîte configurée ne peut pas être supprimée." });
         }

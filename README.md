@@ -1,12 +1,15 @@
 # Mail Manager Workflow
 
-Le MVP accepte plusieurs connexions Gmail et Outlook. Les règles, destinations et historiques sont isolés par boîte via `MailboxConnectionId`. La configuration Microsoft est décrite dans [docs/outlook-setup.md](docs/outlook-setup.md).
+Le MVP accepte plusieurs utilisateurs et plusieurs connexions Gmail ou Outlook. Keycloak authentifie les utilisateurs ; chaque boîte est rattachée au claim `sub`, puis ses règles, destinations et historiques sont isolés via `MailboxConnectionId`. La configuration est détaillée dans [docs/authentication.md](docs/authentication.md), [docs/gmail-setup.md](docs/gmail-setup.md) et [docs/outlook-setup.md](docs/outlook-setup.md).
 
-POC mono-utilisateur de classement automatisé d'emails. Le flux démontrable reçoit un email normalisé fictif dans n8n, délègue la décision à une API ASP.NET Core, puis conserve un historique minimal dans PostgreSQL. L'interface React permet de gérer les règles et de simuler leur résultat sans toucher à une boîte Gmail réelle.
+POC de classement automatisé d'emails. Le flux démontrable reçoit un email normalisé fictif dans n8n, délègue la décision à une API ASP.NET Core, puis conserve un historique minimal dans PostgreSQL. L'interface React permet de gérer les règles et de simuler leur résultat sans toucher à une boîte réelle.
 
 ## Ce que couvre le MVP
 
 - labels et règles rattachés à une `MailboxConnection` ;
+- authentification OpenID Connect avec Keycloak et isolation par propriétaire ;
+- profil public de démonstration en lecture seule, limité aux simulations ;
+- compte de service Keycloak distinct pour n8n ;
 - interface React organisée autour du classement, de l’activité et des paramètres Gmail ;
 - création, modification, activation, désactivation et suppression des labels ;
 - création, modification, activation, désactivation et suppression des règles ;
@@ -26,6 +29,7 @@ apps/api/                    API .NET 8, EF Core et migrations PostgreSQL
 apps/web/                    React 19, TypeScript et Vite
 tests/MailManager.Api.Tests/ Tests métier xUnit
 infra/n8n/workflows/         Exports JSON n8n versionnés
+infra/keycloak/              Realm, image et thème de connexion versionnés
 docs/                        Documentation d'architecture
 compose.yml                  Environnement local complet
 ```
@@ -36,14 +40,14 @@ La voie recommandée nécessite uniquement Docker Desktop avec Docker Compose. P
 
 ## Démarrage avec Docker Compose
 
-1. Créez la configuration locale, puis remplacez les deux valeurs sensibles par des valeurs locales :
+1. Créez la configuration locale, puis remplacez toutes les valeurs sensibles par des valeurs longues et aléatoires :
 
    ```powershell
    Copy-Item .env.example .env
    notepad .env
    ```
 
-2. Construisez et démarrez les quatre services :
+2. Construisez et démarrez les services :
 
    ```powershell
    docker compose up --build -d
@@ -53,11 +57,15 @@ La voie recommandée nécessite uniquement Docker Desktop avec Docker Compose. P
 3. Ouvrez :
 
    - React : [http://localhost:5173](http://localhost:5173)
+   - Keycloak : [http://localhost:8081](http://localhost:8081)
+   - administration Keycloak : [http://localhost:8081/admin/](http://localhost:8081/admin/)
    - Swagger : [http://localhost:8080/swagger](http://localhost:8080/swagger)
    - n8n : [http://localhost:5678](http://localhost:5678)
    - santé API : [http://localhost:8080/health](http://localhost:8080/health)
 
-Au premier démarrage, l'API applique automatiquement les migrations dans le conteneur et crée une boîte de démonstration ainsi qu'un label `Projet Démo`. L'image n8n importe et publie automatiquement le workflow JSON versionné s'il n'existe pas encore. PostgreSQL est exposé sur le port hôte `5433` pour éviter les installations locales courantes sur `5432`.
+Au premier démarrage, Keycloak importe le realm `mail-manager`, puis l'API applique automatiquement les migrations. Les boîtes créées avant l’authentification sont attribuées au compte local `owner`. Un second jeu de données entièrement factice appartient au profil public `demo`. L'image n8n importe et publie automatiquement les workflows JSON versionnés. PostgreSQL est exposé sur le port hôte `5433`.
+
+Le bouton **Découvrir avec le profil démo** connecte un visiteur sans création de compte. Pour retrouver les données locales existantes, utilisez `owner` et le mot de passe `KEYCLOAK_LOCAL_USER_PASSWORD` de votre `.env`.
 
 Pour connecter une vraie boîte, l’exploitant configure une seule fois le client OAuth Google dans le fichier `.env`, puis l’utilisateur ouvre **Paramètres** et clique sur **Connecter mon compte Gmail**. Voir [docs/gmail-setup.md](docs/gmail-setup.md).
 
@@ -118,24 +126,7 @@ La section **Classement** permet de gérer les destinations et les règles sans 
 
 Pour créer un traitement distinct, changez l'identifiant externe. Réutiliser le même identifiant teste l'idempotence et affiche `wasAlreadyProcessed: true` sans créer de doublon.
 
-Le même test peut aussi être lancé au terminal si nécessaire :
-
-   ```powershell
-   $body = @{
-     mailboxConnectionId = '11111111-1111-1111-1111-111111111111'
-     externalMessageId = 'gmail-demo-001'
-     sender = 'contact@exemple.fr'
-     subject = 'Projet Alpha - point hebdomadaire'
-     body = 'Bonjour, voici les prochaines étapes.'
-   } | ConvertTo-Json
-
-   Invoke-RestMethod -Method Post `
-     -Uri 'http://localhost:5678/webhook/mail-manager/email' `
-     -ContentType 'application/json; charset=utf-8' `
-     -Body ([Text.Encoding]::UTF8.GetBytes($body))
-   ```
-
-Le workflow utilise le nom de service Compose `http://api:8080`. Si n8n est lancé hors Compose, remplacez cette URL dans le nœud HTTP par une URL joignable depuis son environnement.
+Le webhook de test relaie le jeton de l’utilisateur connecté : un appel anonyme ou visant la boîte d’un autre utilisateur est rejeté. Le workflow automatique obtient quant à lui un jeton `client_credentials` auprès de Keycloak avant d’appeler l’API avec le rôle `automation`. Il utilise les noms de services Compose `http://keycloak:8080` et `http://api:8080`. Si n8n est lancé hors Compose, adaptez ces URL et protégez le secret du client de service.
 
 ## Exécuter les compilations et tests
 
@@ -160,7 +151,7 @@ pnpm build
 | Méthode | Route | Rôle |
 |---|---|---|
 | `GET` | `/api/mailboxes` | Liste des boîtes configurées |
-| `GET` | `/api/gmail/oauth/authorize` | Démarrage de la connexion OAuth Gmail |
+| `GET` | `/api/gmail/oauth/authorization-url` | URL de connexion OAuth Gmail, après contrôle du propriétaire |
 | `GET` | `/api/gmail/oauth/callback` | Retour OAuth traité côté serveur |
 | `GET` | `/api/gmail/configuration` | État de la configuration OAuth sans exposer le secret |
 | `GET` | `/api/gmail/mailboxes/{id}/test` | Vérification de la connexion Gmail |
@@ -182,8 +173,8 @@ Les valeurs sont nettoyées, les espaces multiples sont réduits et les comparai
 ## Limites actuelles
 
 - connexion Gmail limitée au développement local ; détection automatique par interrogation chaque minute plutôt que Gmail Push/Pub/Sub ;
-- un seul `MailboxConnection` de démonstration, sans utilisateur ni tenant ;
-- aucune authentification applicative ; n8n conserve sa propre configuration locale ;
+- le realm versionné est optimisé pour le développement local ; les domaines et le mode de démarrage Keycloak doivent être durcis pour le VPS ;
+- aucune validation d’adresse email ni récupération de mot de passe tant qu’un serveur SMTP Keycloak n’est pas configuré ;
 - aucune génération de résumé ;
 - aucun mécanisme de retry/dead-letter autour des appels fournisseur ;
 - l'interface ne gère pas encore la création des connexions de boîte ;

@@ -1,4 +1,5 @@
 import type { ClassificationResult, GmailOAuthConfiguration, Label, Mailbox, MailboxSyncResult, MailProvider, ProcessingLog, ProviderConfiguration, Rule, WorkflowResult } from './types'
+import { getAccessToken } from './auth'
 
 const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 const workflowUrl = import.meta.env.VITE_N8N_WEBHOOK_URL ?? 'http://localhost:5678/webhook/mail-manager/email'
@@ -6,9 +7,14 @@ type RulePayload = Omit<Rule, 'id' | 'destinationLabelName'>
 type LabelPayload = Omit<Label, 'id'>
 
 async function requestUrl<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = await getAccessToken()
   const response = await fetch(url, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
   })
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
@@ -35,11 +41,11 @@ export const api = {
   updateLabel: (id: string, label: LabelPayload) => request<Label>(`/api/labels/${id}`, { method: 'PUT', body: JSON.stringify(label) }),
   deleteLabel: (id: string) => request<void>(`/api/labels/${id}`, { method: 'DELETE' }),
   gmailConfiguration: () => request<GmailOAuthConfiguration>('/api/gmail/configuration'),
-  gmailAuthorizationUrl: (mailboxId: string) => `${baseUrl}/api/gmail/oauth/authorize?mailboxConnectionId=${encodeURIComponent(mailboxId)}`,
+  gmailAuthorizationUrl: (mailboxId: string) => request<{ url: string }>(`/api/gmail/oauth/authorization-url?mailboxConnectionId=${encodeURIComponent(mailboxId)}`),
   testGmailConnection: (mailboxId: string) => request<{ isConnected: boolean; emailAddress: string }>(`/api/gmail/mailboxes/${mailboxId}/test`),
   disconnectGmail: (mailboxId: string) => request<void>(`/api/gmail/mailboxes/${mailboxId}/disconnect`, { method: 'POST' }),
   outlookConfiguration: () => request<ProviderConfiguration>('/api/outlook/configuration'),
-  outlookAuthorizationUrl: (mailboxId: string) => `${baseUrl}/api/outlook/oauth/authorize?mailboxConnectionId=${encodeURIComponent(mailboxId)}`,
+  outlookAuthorizationUrl: (mailboxId: string) => request<{ url: string }>(`/api/outlook/oauth/authorization-url?mailboxConnectionId=${encodeURIComponent(mailboxId)}`),
   testOutlookConnection: (mailboxId: string) => request<{ isConnected: boolean; emailAddress: string }>(`/api/outlook/mailboxes/${mailboxId}/test`),
   disconnectOutlook: (mailboxId: string) => request<void>(`/api/outlook/mailboxes/${mailboxId}/disconnect`, { method: 'POST' }),
   syncMailbox: (mailboxId: string, maxResults: number) => request<MailboxSyncResult>(`/api/mailboxes/${mailboxId}/sync`, {

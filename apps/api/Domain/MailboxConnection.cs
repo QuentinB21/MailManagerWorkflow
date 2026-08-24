@@ -3,6 +3,7 @@ namespace MailManager.Api.Domain;
 public sealed class MailboxConnection
 {
     public Guid Id { get; set; }
+    public string OwnerSubject { get; set; } = string.Empty;
     public required string DisplayName { get; set; }
     public MailProvider Provider { get; set; }
     public bool IsActive { get; set; } = true;

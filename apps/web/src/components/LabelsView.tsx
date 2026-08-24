@@ -16,6 +16,7 @@ type Props = {
   editingId?: string
   pendingDeleteId?: string
   busy: boolean
+  readOnly?: boolean
   onFormChange: (form: LabelFormState) => void
   onCreate: () => void
   onSubmit: (event: FormEvent) => void
@@ -26,17 +27,17 @@ type Props = {
   onDelete: (label: Label) => void
 }
 
-export function LabelsView({ labels, rules, form, editorOpen, editingId, pendingDeleteId, busy, onFormChange, onCreate, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
+export function LabelsView({ labels, rules, form, editorOpen, editingId, pendingDeleteId, busy, readOnly = false, onFormChange, onCreate, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
   return (
     <>
       <section className="surface resource-list">
         <div className="section-header">
           <div><p className="overline">Destinations</p><h2>Libellés Gmail</h2><p>Organisez les projets ou clients utilisés par vos règles.</p></div>
-          <div className="section-actions"><span className="count-badge">{labels.length}</span><button className="button primary" type="button" onClick={onCreate}>Ajouter une destination</button></div>
+          <div className="section-actions"><span className="count-badge">{labels.length}</span><button className="button primary" type="button" disabled={readOnly} onClick={onCreate}>Ajouter une destination</button></div>
         </div>
 
         {labels.length === 0 ? (
-          <div className="empty-state"><span className="empty-icon">L</span><h3>Aucune destination</h3><p>Créez votre premier libellé Gmail pour pouvoir lui associer une règle.</p><button className="button primary" type="button" onClick={onCreate}>Ajouter une destination</button></div>
+          <div className="empty-state"><span className="empty-icon">L</span><h3>Aucune destination</h3><p>Créez votre premier libellé Gmail pour pouvoir lui associer une règle.</p><button className="button primary" type="button" disabled={readOnly} onClick={onCreate}>Ajouter une destination</button></div>
         ) : (
           <div className="resource-cards">
             {labels.map((label) => {
@@ -56,9 +57,9 @@ export function LabelsView({ labels, rules, form, editorOpen, editingId, pending
                       <div className="inline-confirm"><span>Supprimer définitivement ?</span><button className="button danger small" onClick={() => onDelete(label)} disabled={busy}>Supprimer</button><button className="button ghost small" onClick={() => onRequestDelete()}>Annuler</button></div>
                     ) : (
                       <div className="resource-actions">
-                        <button className="text-action" onClick={() => onEdit(label)}>Modifier</button>
-                        <button className="text-action" onClick={() => onToggle(label)} disabled={busy}>{label.isActive ? 'Désactiver' : 'Activer'}</button>
-                        <button className="text-action danger-text" disabled={usageCount > 0 || busy} title={usageCount ? 'Supprimez ou modifiez les règles associées avant ce label.' : undefined} onClick={() => onRequestDelete(label.id)}>Supprimer</button>
+                        <button className="text-action" disabled={readOnly} onClick={() => onEdit(label)}>Modifier</button>
+                        <button className="text-action" onClick={() => onToggle(label)} disabled={busy || readOnly}>{label.isActive ? 'Désactiver' : 'Activer'}</button>
+                        <button className="text-action danger-text" disabled={usageCount > 0 || busy || readOnly} title={usageCount ? 'Supprimez ou modifiez les règles associées avant ce label.' : undefined} onClick={() => onRequestDelete(label.id)}>Supprimer</button>
                       </div>
                     )}
                   </div>

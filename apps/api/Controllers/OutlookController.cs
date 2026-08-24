@@ -2,6 +2,8 @@ using MailManager.Api.Contracts;
 using MailManager.Api.Data;
 using MailManager.Api.Domain;
 using MailManager.Api.Services;
+using MailManager.Api.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,21 +15,25 @@ public sealed class OutlookController(
     MailManagerDbContext dbContext,
     OutlookOAuthService oauthService,
     OutlookMailboxService mailboxService,
-    ILogger<OutlookController> logger) : ControllerBase
+    ILogger<OutlookController> logger,
+    MailboxAccessService mailboxAccess,
+    CurrentUser currentUser) : ControllerBase
 {
     [HttpGet("configuration")]
     public ActionResult<ProviderConfigurationResponse> GetConfiguration() =>
         Ok(new ProviderConfigurationResponse(oauthService.IsConfigured));
 
-    [HttpGet("oauth/authorize")]
+    [HttpGet("oauth/authorization-url")]
     public async Task<IActionResult> Authorize(
         [FromQuery] Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
+        if (currentUser.IsDemo) return Forbid();
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         try
         {
             var url = await oauthService.CreateAuthorizationUrlAsync(mailboxConnectionId, cancellationToken);
-            return url is null ? NotFound(new { error = "Boîte Outlook active introuvable." }) : Redirect(url);
+            return url is null ? NotFound(new { error = "Boîte Outlook active introuvable." }) : Ok(new { url });
         }
         catch (OutlookConfigurationException exception)
         {
@@ -35,6 +41,7 @@ public sealed class OutlookController(
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("oauth/callback")]
     public async Task<IActionResult> Callback(
         [FromQuery] string? state,
@@ -68,6 +75,7 @@ public sealed class OutlookController(
         Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         try
         {
             var result = await mailboxService.TestConnectionAsync(mailboxConnectionId, cancellationToken);
@@ -81,12 +89,14 @@ public sealed class OutlookController(
         }
     }
 
+    [Authorize(Policy = AuthorizationPolicies.Automation)]
     [HttpPost("mailboxes/{mailboxConnectionId:guid}/process-new")]
     public async Task<ActionResult<MailboxSyncResponse>> ProcessNew(
         Guid mailboxConnectionId,
         MailboxSyncRequest request,
         CancellationToken cancellationToken)
     {
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         try
         {
             var result = await mailboxService.SyncAsync(mailboxConnectionId, request.MaxResults, cancellationToken);
@@ -107,9 +117,9 @@ public sealed class OutlookController(
     [HttpPost("mailboxes/{mailboxConnectionId:guid}/disconnect")]
     public async Task<IActionResult> Disconnect(Guid mailboxConnectionId, CancellationToken cancellationToken)
     {
-        var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
-            item => item.Id == mailboxConnectionId && item.Provider == MailProvider.Outlook,
-            cancellationToken);
+        if (currentUser.IsDemo) return Forbid();
+        var mailbox = await mailboxAccess.FindAsync(mailboxConnectionId, tracking: true, cancellationToken);
+        if (mailbox?.Provider != MailProvider.Outlook) mailbox = null;
         if (mailbox is null) return NotFound(new { error = "Boîte Outlook introuvable." });
 
         mailbox.EncryptedRefreshToken = null;

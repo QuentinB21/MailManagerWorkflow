@@ -2,6 +2,8 @@ using MailManager.Api.Contracts;
 using MailManager.Api.Data;
 using MailManager.Api.Services;
 using MailManager.Api.Domain;
+using MailManager.Api.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,18 +16,22 @@ public sealed class GmailController(
     GmailOAuthService oauthService,
     GmailOAuthConfigurationService configurationService,
     GmailMailboxService gmailMailboxService,
-    ILogger<GmailController> logger) : ControllerBase
+    ILogger<GmailController> logger,
+    MailboxAccessService mailboxAccess,
+    CurrentUser currentUser) : ControllerBase
 {
     [HttpGet("configuration")]
     public async Task<ActionResult<GmailOAuthConfigurationResponse>> GetConfiguration(
         CancellationToken cancellationToken) =>
         Ok(await configurationService.GetStatusAsync(cancellationToken));
 
-    [HttpGet("oauth/authorize")]
+    [HttpGet("oauth/authorization-url")]
     public async Task<IActionResult> Authorize(
         [FromQuery] Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
+        if (currentUser.IsDemo) return Forbid();
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         try
         {
             var authorizationUrl = await oauthService.CreateAuthorizationUrlAsync(
@@ -33,7 +39,7 @@ public sealed class GmailController(
                 cancellationToken);
             return authorizationUrl is null
                 ? NotFound(new { error = "Boîte mail active introuvable." })
-                : Redirect(authorizationUrl);
+                : Ok(new { url = authorizationUrl });
         }
         catch (GmailConfigurationException exception)
         {
@@ -41,6 +47,7 @@ public sealed class GmailController(
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("oauth/callback")]
     public async Task<IActionResult> Callback(
         [FromQuery] string? state,
@@ -74,6 +81,7 @@ public sealed class GmailController(
         Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         try
         {
             var result = await gmailMailboxService.TestConnectionAsync(mailboxConnectionId, cancellationToken);
@@ -87,12 +95,14 @@ public sealed class GmailController(
         }
     }
 
+    [Authorize(Policy = AuthorizationPolicies.Automation)]
     [HttpPost("mailboxes/{mailboxConnectionId:guid}/process-unread")]
     public async Task<ActionResult<MailboxSyncResponse>> ProcessUnread(
         Guid mailboxConnectionId,
         GmailSyncRequest request,
         CancellationToken cancellationToken)
     {
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         try
         {
             var result = await gmailMailboxService.ProcessUnreadAsync(
@@ -118,9 +128,9 @@ public sealed class GmailController(
         Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
-        var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
-            item => item.Id == mailboxConnectionId && item.Provider == MailProvider.Gmail,
-            cancellationToken);
+        if (currentUser.IsDemo) return Forbid();
+        var mailbox = await mailboxAccess.FindAsync(mailboxConnectionId, tracking: true, cancellationToken);
+        if (mailbox?.Provider != MailProvider.Gmail) mailbox = null;
         if (mailbox is null) return NotFound(new { error = "Boîte mail introuvable." });
 
         if (!string.IsNullOrWhiteSpace(mailbox.EncryptedRefreshToken))

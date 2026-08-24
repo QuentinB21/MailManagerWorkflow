@@ -2,6 +2,7 @@ using MailManager.Api.Contracts;
 using MailManager.Api.Data;
 using MailManager.Api.Domain;
 using MailManager.Api.Services;
+using MailManager.Api.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,13 +13,16 @@ namespace MailManager.Api.Controllers;
 public sealed class LabelsController(
     MailManagerDbContext dbContext,
     MailboxProviderResolver providerResolver,
-    ILogger<LabelsController> logger) : ControllerBase
+    ILogger<LabelsController> logger,
+    MailboxAccessService mailboxAccess,
+    CurrentUser currentUser) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyCollection<LabelResponse>>> GetAll(
         [FromQuery] Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         var labels = await dbContext.LabelDefinitions
             .AsNoTracking()
             .Where(x => x.MailboxConnectionId == mailboxConnectionId)
@@ -34,7 +38,9 @@ public sealed class LabelsController(
     {
         var label = await dbContext.LabelDefinitions.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        return label is null ? NotFound() : Ok(ToResponse(label));
+        return label is null || !await mailboxAccess.CanAccessAsync(label.MailboxConnectionId, cancellationToken)
+            ? NotFound()
+            : Ok(ToResponse(label));
     }
 
     [HttpPost]
@@ -42,9 +48,8 @@ public sealed class LabelsController(
         LabelRequest request,
         CancellationToken cancellationToken)
     {
-        var mailbox = await dbContext.MailboxConnections.FirstOrDefaultAsync(
-            item => item.Id == request.MailboxConnectionId,
-            cancellationToken);
+        if (currentUser.IsDemo) return Forbid();
+        var mailbox = await mailboxAccess.FindAsync(request.MailboxConnectionId, tracking: true, cancellationToken);
         if (mailbox is null)
         {
             return BadRequest(new { error = "MailboxConnectionId inconnu." });
@@ -96,8 +101,9 @@ public sealed class LabelsController(
         LabelRequest request,
         CancellationToken cancellationToken)
     {
+        if (currentUser.IsDemo) return Forbid();
         var label = await dbContext.LabelDefinitions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (label is null)
+        if (label is null || !await mailboxAccess.CanAccessAsync(label.MailboxConnectionId, cancellationToken))
         {
             return NotFound();
         }
@@ -148,8 +154,9 @@ public sealed class LabelsController(
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
+        if (currentUser.IsDemo) return Forbid();
         var label = await dbContext.LabelDefinitions.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (label is null)
+        if (label is null || !await mailboxAccess.CanAccessAsync(label.MailboxConnectionId, cancellationToken))
         {
             return NotFound();
         }

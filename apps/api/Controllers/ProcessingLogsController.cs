@@ -1,4 +1,5 @@
 using MailManager.Api.Data;
+using MailManager.Api.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,7 +7,9 @@ namespace MailManager.Api.Controllers;
 
 [ApiController]
 [Route("api/processing-logs")]
-public sealed class ProcessingLogsController(MailManagerDbContext dbContext) : ControllerBase
+public sealed class ProcessingLogsController(
+    MailManagerDbContext dbContext,
+    MailboxAccessService mailboxAccess) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll(
@@ -14,6 +17,7 @@ public sealed class ProcessingLogsController(MailManagerDbContext dbContext) : C
         [FromQuery] int limit = 100,
         CancellationToken cancellationToken = default)
     {
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         limit = Math.Clamp(limit, 1, 500);
         var logs = await dbContext.ProcessingLogs
             .AsNoTracking()

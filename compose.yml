@@ -17,6 +17,52 @@ services:
       timeout: 5s
       retries: 12
 
+  keycloak-db-init:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    command: ["sh", "-c", "psql -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS keycloak'"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  keycloak:
+    build:
+      context: .
+      dockerfile: infra/keycloak/Dockerfile
+    image: mail-manager-workflow-keycloak:26.7.1
+    command:
+      - start-dev
+      - --import-realm
+      - --spi-theme-cache-themes=false
+      - --spi-theme-cache-templates=false
+      - --spi-theme-static-max-age=-1
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      KC_DB_SCHEMA: keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: http://localhost:8081
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-me-before-public-use}
+      KEYCLOAK_LOCAL_USER_PASSWORD: ${KEYCLOAK_LOCAL_USER_PASSWORD:-change-me-before-public-use}
+      N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:-change-me-before-public-use}
+    ports:
+      - "8081:8080"
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+    mem_limit: 1g
+
   api:
     build:
       context: .
@@ -37,11 +83,16 @@ services:
       Outlook__RedirectUri: http://localhost:8080/api/outlook/oauth/callback
       Outlook__WebAppUrl: http://localhost:5173
       DataProtection__KeysPath: /var/lib/mail-manager/keys
+      Authentication__MetadataAddress: http://keycloak:8080/realms/mail-manager/.well-known/openid-configuration
+      Authentication__Issuer: http://localhost:8081/realms/mail-manager
+      Authentication__Audience: mail-manager-api
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_started
     volumes:
       - api-data-protection-keys:/var/lib/mail-manager/keys
 
@@ -51,6 +102,9 @@ services:
       args:
         VITE_API_URL: http://localhost:8080
         VITE_N8N_WEBHOOK_URL: http://localhost:5678/webhook/mail-manager/email
+        VITE_KEYCLOAK_URL: http://localhost:8081
+        VITE_KEYCLOAK_REALM: mail-manager
+        VITE_KEYCLOAK_CLIENT_ID: mail-manager-web
     ports:
       - "5173:80"
     depends_on:
@@ -68,12 +122,16 @@ services:
       N8N_SECURE_COOKIE: "false"
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_BOOTSTRAP_FORCE_IMPORT: ${N8N_BOOTSTRAP_FORCE_IMPORT:-false}
+      N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:-change-me-before-public-use}
+      KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/mail-manager/protocol/openid-connect/token
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
     ports:
       - "5678:5678"
     volumes:
       - n8n-data:/home/node/.n8n
     depends_on:
       - api
+      - keycloak
 
 volumes:
   postgres-data:

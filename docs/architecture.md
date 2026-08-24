@@ -29,6 +29,8 @@ flowchart LR
 
 React n'accède pas réellement à PostgreSQL : les flèches représentent les responsabilités fonctionnelles, tous les accès passent par l'API.
 
+Keycloak précède ces échanges : React utilise Authorization Code + PKCE, l’API valide les JWT, et n8n utilise un client confidentiel avec le rôle de service `automation`.
+
 ## Responsabilités
 
 ### React
@@ -68,6 +70,8 @@ PostgreSQL stocke :
 
 L'index unique `(MailboxConnectionId, ExternalMessageId)` constitue la barrière d'idempotence. Le sujet, l'expéditeur et le corps ne sont pas stockés dans l'historique. Les tableaux de critères sont des colonnes PostgreSQL `text[]`.
 
+`MailboxConnection.OwnerSubject` contient le claim `sub` émis par Keycloak. Toutes les lectures et mutations utilisateur vérifient cette propriété avant d’accéder aux entités enfants. Le compte de service n8n est le seul rôle autorisé à traverser les propriétaires pour découvrir les boîtes à automatiser.
+
 Le Client ID et le secret OAuth sont administrés dans l’environnement du serveur et ne sont jamais saisis ou renvoyés par React. Le refresh token Gmail est stocké chiffré sur `MailboxConnection`. Les clés ASP.NET Core Data Protection vivent dans un volume Docker distinct afin qu’un rebuild de l’API ne rende pas ce jeton illisible. Le corps et le sujet complet des emails Gmail ne sont jamais persistés.
 
 ### n8n
@@ -88,16 +92,16 @@ L'image n8n contient un bootstrap idempotent. Elle compare l’empreinte du work
 
 Une règle possède jusqu'à quatre groupes : adresses d'expéditeur, domaines, mots-clés du sujet et mots-clés du corps. Une correspondance dans une liste suffit pour que son groupe corresponde. Le mode `Any` accepte un groupe correspondant ; le mode `All` exige tous les groupes non vides. La première règle correspondante gagne après tri par `Priority` croissante, puis par date et identifiant pour un résultat déterministe.
 
-## Évolution vers plusieurs utilisateurs
+## Authentification et plusieurs utilisateurs
 
-La première évolution ajoutera `UserId` à `MailboxConnection`, puis appliquera le périmètre de la boîte à chaque requête authentifiée. Les labels, règles et historiques étant déjà liés à `MailboxConnectionId`, leur schéma ne nécessite pas de refonte.
+Keycloak porte désormais l’inscription, la connexion et les sessions. L’API ne crée pas d’entité utilisateur locale : elle conserve uniquement l’identifiant externe stable `sub` sur `MailboxConnection`. Cette frontière évite de dupliquer les mots de passe ou les profils et permet plusieurs boîtes par identité.
+
+Le rôle `demo` ne peut exécuter que des lectures sur son jeu de données factice et des simulations non persistées. Le rôle `automation` est réservé au client confidentiel n8n. Les callbacks OAuth fournisseur restent anonymes par nécessité protocolaire, mais leur `state` signé ne peut être créé qu’après authentification et contrôle du propriétaire.
 
 Les étapes futures envisagées sont :
 
-1. ajouter l'identité et l'autorisation sans les mélanger au moteur de règles ;
-2. permettre plusieurs connexions par utilisateur ;
-3. introduire des adaptateurs `GmailEmailAdapter` puis `OutlookEmailAdapter` vers le contrat normalisé ;
-4. ajouter `SummaryRequest` et `SummaryResult`, toujours rattachés à une boîte ;
-5. déplacer les clés et jetons fournisseur vers un coffre de secrets en environnement partagé, jamais dans Git ni en clair dans PostgreSQL.
-
-Cette préparation ne constitue pas une implémentation multi-utilisateur : aucun utilisateur, rôle ou tenant n'existe dans le MVP. Le flux OAuth Gmail actuel reste rattaché à l’unique `MailboxConnection` locale.
+1. vérifier les adresses email et activer la récupération de mot de passe avec un SMTP ;
+2. ajouter `SummaryRequest` et `SummaryResult`, toujours rattachés à une boîte ;
+3. déplacer les clés et jetons fournisseur vers un coffre de secrets en environnement partagé ;
+4. ajouter des tests d’intégration HTTP avec un véritable émetteur OIDC de test ;
+5. préparer le déploiement Keycloak en mode production derrière le reverse proxy du VPS.

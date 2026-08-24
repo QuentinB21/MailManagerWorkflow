@@ -1,0 +1,151 @@
+{
+  "realm": "mail-manager",
+  "displayName": "Mail Manager",
+  "displayNameHtml": "Mail Manager",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["fr", "en"],
+  "defaultLocale": "fr",
+  "loginTheme": "mail-manager",
+  "roles": {
+    "realm": [
+      {
+        "name": "demo",
+        "description": "Accès public limité aux données et simulations de démonstration"
+      },
+      {
+        "name": "automation",
+        "description": "Compte de service n8n autorisé à exécuter les traitements"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "mail-manager-web",
+      "name": "Mail Manager Web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "mail-manager-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "mail-manager-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "mail-manager-api",
+      "name": "Mail Manager API",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "mail-manager-n8n",
+      "name": "Automatisation n8n",
+      "enabled": true,
+      "secret": "${N8N_API_CLIENT_SECRET}",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "mail-manager-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "mail-manager-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "10000000-0000-0000-0000-000000000001",
+      "username": "owner",
+      "email": "owner@local.mail-manager",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Compte",
+      "lastName": "local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_LOCAL_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000002",
+      "username": "demo",
+      "email": "demo@local.mail-manager",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Visiteur",
+      "lastName": "démo",
+      "realmRoles": ["demo"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "service-account-mail-manager-n8n",
+      "enabled": true,
+      "serviceAccountClientId": "mail-manager-n8n",
+      "realmRoles": ["automation"]
+    }
+  ]
+}

@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Mailbox } from '../types'
+import { useAuth } from '../auth'
 
 export type AppView = 'classification' | 'activity' | 'settings'
 
@@ -19,6 +20,8 @@ const navItems: Array<{ id: AppView; label: string; mobileLabel: string; icon: R
 ]
 
 export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox, onNavigate, children }: Props) {
+  const auth = useAuth()
+  const [accountOpen, setAccountOpen] = useState(false)
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -26,12 +29,26 @@ export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox,
           <img className="brand-mark" src="/logo.svg" alt="" aria-hidden="true" />
           <div><strong>Mail Manager</strong><small>Classement automatique</small></div>
         </button>
-        <label className="mailbox-switcher">
-          <span className="sr-only">Boîte active</span>
-          <select value={mailbox?.id ?? ''} onChange={(event) => onSelectMailbox?.(event.target.value)} aria-label="Boîte active">
-            {mailboxes.map((item) => <option key={item.id} value={item.id}>{item.emailAddress ?? item.displayName} · {item.provider}{item.requiresReconnect ? ' · Reconnexion nécessaire' : ''}</option>)}
-          </select>
-        </label>
+        <div className="topbar-actions">
+          <label className="mailbox-switcher">
+            <span className="sr-only">Boîte active</span>
+            <select value={mailbox?.id ?? ''} onChange={(event) => onSelectMailbox?.(event.target.value)} aria-label="Boîte active">
+              {mailboxes.length === 0 && <option value="">Aucune boîte configurée</option>}
+              {mailboxes.map((item) => <option key={item.id} value={item.id}>{item.emailAddress ?? item.displayName} · {item.provider}{item.requiresReconnect ? ' · Reconnexion nécessaire' : ''}</option>)}
+            </select>
+          </label>
+          <div className="account-menu">
+            <button className="account-status" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}>
+              <span className={auth.isDemo ? 'account-avatar demo' : 'account-avatar'}>{auth.displayName.slice(0, 1).toUpperCase()}</span>
+              <div><strong>{auth.displayName}</strong><small>{auth.isDemo ? 'Profil de démonstration' : 'Compte sécurisé'}</small></div>
+              <span className="account-chevron" aria-hidden="true">⌄</span>
+            </button>
+            {accountOpen && <div className="account-popover">
+              {!auth.isDemo && <button type="button" onClick={() => void auth.manageAccount()}>Gérer mon compte</button>}
+              <button type="button" onClick={() => void auth.logout()}>Se déconnecter</button>
+            </div>}
+          </div>
+        </div>
       </header>
       <nav className="main-nav" aria-label="Navigation principale" data-active={activeView}>
         {navItems.map((item) => <button key={item.id} type="button" className={activeView === item.id ? 'nav-item active' : 'nav-item'} onClick={() => onNavigate(item.id)} aria-current={activeView === item.id ? 'page' : undefined}><span className="nav-icon">{item.icon}</span><span className="nav-label desktop-label">{item.label}</span><span className="nav-label mobile-label">{item.mobileLabel}</span></button>)}

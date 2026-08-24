@@ -18,9 +18,10 @@ type Props = {
   onSimulate: (event: FormEvent) => void
   onRunWorkflow: () => void
   embedded?: boolean
+  simulationOnly?: boolean
 }
 
-export function WorkflowTestView({ form, result, resultSource, busy, onFormChange, onGenerateId, onSimulate, onRunWorkflow, embedded = false }: Props) {
+export function WorkflowTestView({ form, result, resultSource, busy, onFormChange, onGenerateId, onSimulate, onRunWorkflow, embedded = false, simulationOnly = false }: Props) {
   return (
     <div className={embedded ? 'classification-test' : 'page'}>
       {!embedded && <div className="page-header">
@@ -35,8 +36,8 @@ export function WorkflowTestView({ form, result, resultSource, busy, onFormChang
             <label>Expéditeur<input required type="email" value={form.sender} onChange={(event) => onFormChange({ ...form, sender: event.target.value })} placeholder="contact@client.fr" /></label>
             <label>Sujet<input value={form.subject} onChange={(event) => onFormChange({ ...form, subject: event.target.value })} /></label>
             <label>Corps<textarea rows={7} value={form.body} onChange={(event) => onFormChange({ ...form, body: event.target.value })} /></label>
-            <div className="test-actions"><button type="submit" className="button secondary" disabled={busy}>{busy ? 'Traitement…' : 'Simuler via l’API'}</button><button type="button" className="button primary" disabled={busy} onClick={onRunWorkflow}>{busy ? 'Traitement…' : 'Exécuter via n8n'} <span>→</span></button></div>
-            <div className="action-help"><span><i className="help-dot simulation" />Simulation : aucune écriture</span><span><i className="help-dot workflow" />n8n : résultat historisé</span></div>
+            <div className={`test-actions${simulationOnly ? ' simulation-only' : ''}`}><button type="submit" className="button secondary" disabled={busy}>{busy ? 'Traitement…' : 'Simuler via l’API'}</button>{!simulationOnly && <button type="button" className="button primary" disabled={busy} onClick={onRunWorkflow}>{busy ? 'Traitement…' : 'Exécuter via n8n'} <span>→</span></button>}</div>
+            <div className="action-help"><span><i className="help-dot simulation" />Simulation : aucune écriture</span>{!simulationOnly && <span><i className="help-dot workflow" />n8n : résultat historisé</span>}</div>
           </form>
         </section>
 

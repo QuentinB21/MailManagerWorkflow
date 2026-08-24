@@ -11,7 +11,33 @@
       "position": [-600, 0]
     },
     {
-      "parameters": { "url": "http://api:8080/api/mailboxes/automation-targets", "options": { "response": { "response": { "responseFormat": "json" } } } },
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.KEYCLOAK_TOKEN_URL }}",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "grant_type", "value": "client_credentials" },
+            { "name": "client_id", "value": "mail-manager-n8n" },
+            { "name": "client_secret", "value": "={{ $env.N8N_API_CLIENT_SECRET }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "10428a76-eed9-4671-82be-e529c01dd002",
+      "name": "Obtenir un jeton Keycloak",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-430, 0]
+    },
+    {
+      "parameters": {
+        "url": "http://api:8080/api/mailboxes/automation-targets",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "={{ 'Bearer ' + $json.access_token }}" }] },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
       "id": "60eed83b-e5a2-4e3e-b53e-89a93439d85d",
       "name": "Récupérer toutes les boîtes connectées",
       "type": "n8n-nodes-base.httpRequest",
@@ -31,6 +57,8 @@
       "parameters": {
         "method": "POST",
         "url": "=http://api:8080/api/mailboxes/{{ $json.mailboxConnectionId }}/sync",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "={{ 'Bearer ' + $('Obtenir un jeton Keycloak').first().json.access_token }}" }] },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -46,7 +74,8 @@
   ],
   "pinData": {},
   "connections": {
-    "Vérifier les boîtes chaque minute": { "main": [[{ "node": "Récupérer toutes les boîtes connectées", "type": "main", "index": 0 }]] },
+    "Vérifier les boîtes chaque minute": { "main": [[{ "node": "Obtenir un jeton Keycloak", "type": "main", "index": 0 }]] },
+    "Obtenir un jeton Keycloak": { "main": [[{ "node": "Récupérer toutes les boîtes connectées", "type": "main", "index": 0 }]] },
     "Récupérer toutes les boîtes connectées": { "main": [[{ "node": "Une exécution par boîte", "type": "main", "index": 0 }]] },
     "Une exécution par boîte": { "main": [[{ "node": "Synchroniser via le bon fournisseur", "type": "main", "index": 0 }]] }
   },

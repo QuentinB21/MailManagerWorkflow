@@ -8,6 +8,11 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
 {
     public static readonly Guid DemoMailboxId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid DemoLabelId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    public static readonly Guid PublicDemoMailboxId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    public static readonly Guid PublicDemoLabelId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+    public static readonly Guid PublicDemoRuleId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+    public const string LocalOwnerSubject = "10000000-0000-0000-0000-000000000001";
+    public const string DemoOwnerSubject = "10000000-0000-0000-0000-000000000002";
 
     public DbSet<MailboxConnection> MailboxConnections => Set<MailboxConnection>();
     public DbSet<LabelDefinition> LabelDefinitions => Set<LabelDefinition>();
@@ -19,12 +24,14 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
     {
         modelBuilder.Entity<MailboxConnection>(entity =>
         {
+            entity.Property(x => x.OwnerSubject).HasMaxLength(200);
             entity.Property(x => x.DisplayName).HasMaxLength(200);
             entity.Property(x => x.Provider).HasConversion<string>().HasMaxLength(50);
             entity.Property(x => x.EmailAddress).HasMaxLength(320);
             entity.Property(x => x.EncryptedRefreshToken).HasColumnType("text");
             entity.Property(x => x.GrantedScopes).HasMaxLength(1000);
             entity.Property(x => x.LastSyncError).HasMaxLength(1000);
+            entity.HasIndex(x => x.OwnerSubject);
         });
 
         modelBuilder.Entity<GmailOAuthConfiguration>(entity =>
@@ -84,6 +91,7 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
         modelBuilder.Entity<MailboxConnection>().HasData(new MailboxConnection
         {
             Id = DemoMailboxId,
+            OwnerSubject = LocalOwnerSubject,
             DisplayName = "Boîte Gmail de démonstration",
             Provider = MailProvider.Gmail,
             IsActive = true,
@@ -95,6 +103,40 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
             MailboxConnectionId = DemoMailboxId,
             Name = "Projet Démo",
             Color = "#2563eb",
+            IsActive = true,
+            CreatedAt = seedDate
+        });
+        modelBuilder.Entity<ClassificationRule>().HasData(new ClassificationRule
+        {
+            Id = PublicDemoRuleId,
+            MailboxConnectionId = PublicDemoMailboxId,
+            DestinationLabelId = PublicDemoLabelId,
+            Name = "Projet Alpha",
+            Priority = 10,
+            IsActive = true,
+            MatchMode = MatchMode.Any,
+            SenderAddresses = [],
+            SenderDomains = ["client.fr"],
+            SubjectKeywords = ["projet alpha"],
+            BodyKeywords = [],
+            CreatedAt = seedDate,
+            UpdatedAt = seedDate
+        });
+        modelBuilder.Entity<MailboxConnection>().HasData(new MailboxConnection
+        {
+            Id = PublicDemoMailboxId,
+            OwnerSubject = DemoOwnerSubject,
+            DisplayName = "Boîte de démonstration",
+            Provider = MailProvider.Gmail,
+            IsActive = true,
+            CreatedAt = seedDate
+        });
+        modelBuilder.Entity<LabelDefinition>().HasData(new LabelDefinition
+        {
+            Id = PublicDemoLabelId,
+            MailboxConnectionId = PublicDemoMailboxId,
+            Name = "Projet Démo",
+            Color = "#c64a2f",
             IsActive = true,
             CreatedAt = seedDate
         });

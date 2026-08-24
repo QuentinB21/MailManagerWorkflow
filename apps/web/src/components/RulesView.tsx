@@ -27,6 +27,7 @@ type Props = {
   editingId?: string
   pendingDeleteId?: string
   busy: boolean
+  readOnly?: boolean
   onFormChange: (form: RuleFormState) => void
   onCreate: () => void
   onSubmit: (event: FormEvent) => void
@@ -65,7 +66,7 @@ export const createRuleCondition = (type: RuleConditionType, value = ''): RuleCo
   value,
 })
 
-export function RulesView({ rules, labels, form, editorOpen, editingId, pendingDeleteId, busy, onFormChange, onCreate, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
+export function RulesView({ rules, labels, form, editorOpen, editingId, pendingDeleteId, busy, readOnly = false, onFormChange, onCreate, onSubmit, onEdit, onCancelEdit, onToggle, onRequestDelete, onDelete }: Props) {
   const [conditionPickerOpen, setConditionPickerOpen] = useState(false)
   const [expandedRuleIds, setExpandedRuleIds] = useState<string[]>([])
 
@@ -95,9 +96,9 @@ export function RulesView({ rules, labels, form, editorOpen, editingId, pendingD
   return (
     <>
       <section className="surface resource-list">
-        <div className="section-header"><div><p className="overline">Moteur</p><h2>Règles de classement</h2><p>La plus petite priorité est évaluée en premier.</p></div><div className="section-actions"><span className="count-badge">{rules.length}</span><button className="button primary" type="button" disabled={labels.length === 0} title={labels.length === 0 ? 'Créez d’abord une destination.' : undefined} onClick={onCreate}>Ajouter une règle</button></div></div>
+        <div className="section-header"><div><p className="overline">Moteur</p><h2>Règles de classement</h2><p>La plus petite priorité est évaluée en premier.</p></div><div className="section-actions"><span className="count-badge">{rules.length}</span><button className="button primary" type="button" disabled={labels.length === 0 || readOnly} title={labels.length === 0 ? 'Créez d’abord une destination.' : undefined} onClick={onCreate}>Ajouter une règle</button></div></div>
         {rules.length === 0 ? (
-          <div className="empty-state"><span className="empty-icon">R</span><h3>Aucune règle</h3><p>{labels.length === 0 ? 'Créez d’abord une destination, puis définissez les emails qui doivent y être classés.' : 'Ajoutez au moins un critère pour commencer le classement.'}</p>{labels.length > 0 && <button className="button primary" type="button" onClick={onCreate}>Ajouter une règle</button>}</div>
+          <div className="empty-state"><span className="empty-icon">R</span><h3>Aucune règle</h3><p>{labels.length === 0 ? 'Créez d’abord une destination, puis définissez les emails qui doivent y être classés.' : 'Ajoutez au moins un critère pour commencer le classement.'}</p>{labels.length > 0 && <button className="button primary" type="button" disabled={readOnly} onClick={onCreate}>Ajouter une règle</button>}</div>
         ) : (
           <div className="rule-grid">
             {rules.map((rule) => {
@@ -113,7 +114,7 @@ export function RulesView({ rules, labels, form, editorOpen, editingId, pendingD
                     {pendingDeleteId === rule.id ? (
                       <div className="inline-confirm rule-summary-confirm"><span>Supprimer cette règle ?</span><button className="button danger small" onClick={() => onDelete(rule)} disabled={busy}>Supprimer</button><button className="button ghost small" onClick={() => onRequestDelete()}>Annuler</button></div>
                     ) : (
-                      <div className="resource-actions"><button className="text-action" onClick={() => onEdit(rule)}>Modifier</button><button className="text-action" onClick={() => onToggle(rule)} disabled={busy}>{rule.isActive ? 'Désactiver' : 'Activer'}</button><button className="text-action danger-text" onClick={() => onRequestDelete(rule.id)} disabled={busy}>Supprimer</button></div>
+                      <div className="resource-actions"><button className="text-action" disabled={readOnly} onClick={() => onEdit(rule)}>Modifier</button><button className="text-action" onClick={() => onToggle(rule)} disabled={busy || readOnly}>{rule.isActive ? 'Désactiver' : 'Activer'}</button><button className="text-action danger-text" onClick={() => onRequestDelete(rule.id)} disabled={busy || readOnly}>Supprimer</button></div>
                     )}
                     <button className={`rule-expand${isExpanded ? ' expanded' : ''}`} type="button" aria-expanded={isExpanded} aria-controls={detailsId} aria-label={`${isExpanded ? 'Masquer' : 'Afficher'} les détails de la règle « ${rule.name} »`} onClick={() => toggleRuleDetails(rule.id)}>
                       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" /></svg>

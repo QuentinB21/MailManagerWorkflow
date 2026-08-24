@@ -7,6 +7,7 @@ import { createRuleCondition, RulesView, type RuleCondition, type RuleFormState 
 import { WorkflowTestView, type EmailFormState } from './components/WorkflowTestView'
 import { MailboxConnectionView } from './components/MailboxConnectionView'
 import type { ClassificationResult, GmailOAuthConfiguration, Label, Mailbox, MailboxSyncResult, MailProvider, ProcessingLog, ProviderConfiguration, Rule } from './types'
+import { useAuth } from './auth'
 
 type ClassificationSection = 'rules' | 'destinations' | 'test'
 const splitValues = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean)
@@ -22,6 +23,7 @@ const ruleConditions = (rule: Rule): RuleCondition[] => [
 const defaultEmailForm = (): EmailFormState => ({ externalMessageId: newExternalMessageId(), sender: 'contact@client.fr', subject: 'Point hebdomadaire Projet Alpha', body: 'Bonjour, voici les prochaines étapes.' })
 
 function App() {
+  const auth = useAuth()
   const [activeView, setActiveView] = useState<AppView>('classification')
   const [classificationSection, setClassificationSection] = useState<ClassificationSection>('destinations')
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([])
@@ -51,7 +53,6 @@ function App() {
     const items = await api.mailboxes()
     setMailboxes(items)
     const selected = items.find((item) => item.id === (preferredId ?? mailbox?.id)) ?? items.find((item) => item.isActive)
-    if (!selected) throw new Error('Aucune boîte active configurée.')
     setMailbox(selected)
     return selected
   }
@@ -71,7 +72,7 @@ function App() {
     else if (query.has('outlookError')) { setActiveView('settings'); setError('La connexion Outlook n’a pas abouti. Vérifiez la configuration Microsoft puis réessayez.') }
     if (oauthReturn) window.history.replaceState({}, '', window.location.pathname)
     Promise.all([loadMailboxes(returnedMailboxId), loadConfigurations()])
-      .then(([selected]) => { if (!oauthReturn && !selected.isConnected) setActiveView('settings') })
+      .then(([selected]) => { if (!oauthReturn && (!selected || !selected.isConnected) && !auth.isDemo) setActiveView('settings') })
       .catch((err: Error) => setError(err.message))
   }, [])
 
@@ -156,7 +157,18 @@ function App() {
   async function addMailbox(provider: MailProvider) {
     setBusy(true); setError(''); try { const created = await api.createMailbox(provider); await loadMailboxes(created.id); setMailboxSyncResult(undefined); setNotice(`Connexion ${provider} ajoutée. Vous pouvez maintenant l’autoriser.`) } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
   }
-  function connectMailbox() { if (!mailbox) return; window.location.assign(mailbox.provider === 'Gmail' ? api.gmailAuthorizationUrl(mailbox.id) : api.outlookAuthorizationUrl(mailbox.id)) }
+  async function connectMailbox() {
+    if (!mailbox) return
+    setBusy(true); setError('')
+    try {
+      const authorization = mailbox.provider === 'Gmail'
+        ? await api.gmailAuthorizationUrl(mailbox.id)
+        : await api.outlookAuthorizationUrl(mailbox.id)
+      window.location.assign(authorization.url)
+    } catch (err) {
+      setError((err as Error).message); setBusy(false)
+    }
+  }
   async function testMailboxConnection() { if (!mailbox) return; setBusy(true); setError(''); try { const status = mailbox.provider === 'Gmail' ? await api.testGmailConnection(mailbox.id) : await api.testOutlookConnection(mailbox.id); setNotice(`Connexion ${mailbox.provider} valide pour ${status.emailAddress}.`); await loadMailboxes(mailbox.id) } catch (err) { setError((err as Error).message); await loadMailboxes(mailbox.id).catch(() => undefined) } finally { setBusy(false) } }
   async function syncMailbox(maxResults: number) { if (!mailbox) return; setBusy(true); setError(''); try { const sync = await api.syncMailbox(mailbox.id, maxResults); setMailboxSyncResult(sync); setLogs(await api.logs(mailbox.id)); await loadMailboxes(mailbox.id); setNotice(`${sync.processedCount} email(s) traité(s), ${sync.destinationAppliedCount} destination(s) appliquée(s).`) } catch (err) { setError((err as Error).message); await loadMailboxes(mailbox.id).catch(() => undefined) } finally { setBusy(false) } }
   async function disconnectMailbox() { if (!mailbox) return; setBusy(true); setError(''); try { if (mailbox.provider === 'Gmail') await api.disconnectGmail(mailbox.id); else await api.disconnectOutlook(mailbox.id); setMailboxSyncResult(undefined); await loadMailboxes(mailbox.id); setNotice(`Le compte ${mailbox.provider} a été déconnecté.`) } catch (err) { setError((err as Error).message) } finally { setBusy(false) } }
@@ -166,13 +178,16 @@ function App() {
     <AppShell activeView={activeView} mailbox={mailbox} mailboxes={mailboxes} onSelectMailbox={selectMailbox} onNavigate={setActiveView}>
       {error && <div className="global-message error" role="alert"><span>!</span><p>{error}</p><button onClick={() => setError('')} aria-label="Fermer">×</button></div>}
       {notice && <div className="global-message notice" role="status"><span>✓</span><p>{notice}</p><button onClick={() => setNotice('')} aria-label="Fermer">×</button></div>}
+      {auth.isDemo && <div className="demo-ribbon"><strong>Mode démonstration</strong><span>Configuration en lecture seule · simulations disponibles</span></div>}
       {activeView === 'classification' && <div className="page">
         <div className="page-header"><div><h1>Classement</h1><p>Règles et destinations exclusivement appliquées à cette boîte {mailbox?.provider}.</p></div></div>
+        {!mailbox ? <div className="surface empty-state"><span className="empty-icon">@</span><h3>Ajoutez votre première boîte</h3><p>Ouvrez l’onglet Boîtes pour connecter Gmail ou Outlook et créer ses règles.</p><button className="button primary" onClick={() => setActiveView('settings')}>Configurer une boîte</button></div> : <>
         <div className="segmented-nav" role="tablist" aria-label="Gestion du classement" data-active={classificationSection}><button role="tab" aria-selected={classificationSection === 'destinations'} className={classificationSection === 'destinations' ? 'active' : ''} onClick={() => setClassificationSection('destinations')}>Destinations <span className="tab-count">{labels.length}</span></button><button role="tab" aria-selected={classificationSection === 'rules'} className={classificationSection === 'rules' ? 'active' : ''} onClick={() => setClassificationSection('rules')}>Règles <span className="tab-count">{rules.length}</span></button><button role="tab" aria-selected={classificationSection === 'test'} className={classificationSection === 'test' ? 'active' : ''} onClick={() => setClassificationSection('test')}><span className="tab-label-long">Tester les règles</span><span className="tab-label-short">Tester</span></button><span className="segmented-indicator" aria-hidden="true" /></div>
-        <div className="section-frame" key={classificationSection}>{classificationSection === 'destinations' ? <LabelsView labels={labels} rules={rules} form={labelForm} editorOpen={labelEditorOpen} editingId={editingLabelId} pendingDeleteId={pendingDeleteLabelId} busy={busy} onFormChange={setLabelForm} onCreate={createLabel} onSubmit={submitLabel} onEdit={editLabel} onCancelEdit={cancelLabelEdit} onToggle={toggleLabel} onRequestDelete={setPendingDeleteLabelId} onDelete={deleteLabel} /> : classificationSection === 'rules' ? <RulesView rules={rules} labels={labels} form={ruleForm} editorOpen={ruleEditorOpen} editingId={editingRuleId} pendingDeleteId={pendingDeleteRuleId} busy={busy} onFormChange={setRuleForm} onCreate={createRule} onSubmit={submitRule} onEdit={editRule} onCancelEdit={cancelRuleEdit} onToggle={toggleRule} onRequestDelete={setPendingDeleteRuleId} onDelete={deleteRule} /> : <WorkflowTestView embedded form={emailForm} result={result} resultSource={resultSource} busy={busy} onFormChange={setEmailForm} onGenerateId={() => setEmailForm((current) => ({ ...current, externalMessageId: newExternalMessageId() }))} onSimulate={simulate} onRunWorkflow={runWorkflow} />}</div>
+        <div className="section-frame" key={classificationSection}>{classificationSection === 'destinations' ? <LabelsView labels={labels} rules={rules} form={labelForm} editorOpen={labelEditorOpen} editingId={editingLabelId} pendingDeleteId={pendingDeleteLabelId} busy={busy} readOnly={auth.isDemo} onFormChange={setLabelForm} onCreate={createLabel} onSubmit={submitLabel} onEdit={editLabel} onCancelEdit={cancelLabelEdit} onToggle={toggleLabel} onRequestDelete={setPendingDeleteLabelId} onDelete={deleteLabel} /> : classificationSection === 'rules' ? <RulesView rules={rules} labels={labels} form={ruleForm} editorOpen={ruleEditorOpen} editingId={editingRuleId} pendingDeleteId={pendingDeleteRuleId} busy={busy} readOnly={auth.isDemo} onFormChange={setRuleForm} onCreate={createRule} onSubmit={submitRule} onEdit={editRule} onCancelEdit={cancelRuleEdit} onToggle={toggleRule} onRequestDelete={setPendingDeleteRuleId} onDelete={deleteRule} /> : <WorkflowTestView embedded form={emailForm} result={result} resultSource={resultSource} busy={busy} simulationOnly={auth.isDemo} onFormChange={setEmailForm} onGenerateId={() => setEmailForm((current) => ({ ...current, externalMessageId: newExternalMessageId() }))} onSimulate={simulate} onRunWorkflow={runWorkflow} />}</div>
+        </>}
       </div>}
       {activeView === 'activity' && <div className="page"><div className="page-header"><div><h1>Activité</h1><p>Décisions et actions fournisseur pour la boîte {mailbox?.provider} sélectionnée.</p></div></div><HistoryTable logs={logs} onRefresh={refreshHistory} busy={busy} /></div>}
-      {activeView === 'settings' && mailbox && <MailboxConnectionView mailboxes={mailboxes} selectedMailbox={mailbox} configurations={configurations} busy={busy} syncResult={mailboxSyncResult} onSelect={selectMailbox} onAdd={addMailbox} onConnect={connectMailbox} onTestConnection={testMailboxConnection} onSync={syncMailbox} onDisconnect={disconnectMailbox} onDelete={deleteMailbox} />}
+      {activeView === 'settings' && <MailboxConnectionView mailboxes={mailboxes} selectedMailbox={mailbox} configurations={configurations} busy={busy} readOnly={auth.isDemo} syncResult={mailboxSyncResult} onSelect={selectMailbox} onAdd={addMailbox} onConnect={connectMailbox} onTestConnection={testMailboxConnection} onSync={syncMailbox} onDisconnect={disconnectMailbox} onDelete={deleteMailbox} />}
     </AppShell>
   )
 }

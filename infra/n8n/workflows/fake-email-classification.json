@@ -20,10 +20,16 @@
       "parameters": {
         "method": "POST",
         "url": "http://api:8080/api/classification/process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "={{ $('Email fictif (Webhook)').first().json.headers.authorization }}" }
+          ]
+        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ mailboxConnectionId: $json.body.mailboxConnectionId, externalMessageId: $json.body.externalMessageId, sender: $json.body.sender, subject: $json.body.subject ?? '', body: $json.body.body ?? '' }) }}",
+        "body": "={{ JSON.stringify({ mailboxConnectionId: $('Email fictif (Webhook)').first().json.body.mailboxConnectionId, externalMessageId: $('Email fictif (Webhook)').first().json.body.externalMessageId, sender: $('Email fictif (Webhook)').first().json.body.sender, subject: $('Email fictif (Webhook)').first().json.body.subject ?? '', body: $('Email fictif (Webhook)').first().json.body.body ?? '' }) }}",
         "options": {}
       },
       "id": "27543384-94da-4508-a9e6-a91fc7803c16",

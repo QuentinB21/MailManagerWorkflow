@@ -6,6 +6,7 @@ type Props = {
   selectedMailbox?: Mailbox
   configurations: Record<MailProvider, ProviderConfiguration>
   busy: boolean
+  readOnly?: boolean
   syncResult?: MailboxSyncResult
   onSelect: (mailboxId: string) => void
   onAdd: (provider: MailProvider) => void
@@ -25,6 +26,7 @@ export function MailboxConnectionView({
   selectedMailbox: mailbox,
   configurations,
   busy,
+  readOnly = false,
   syncResult,
   onSelect,
   onAdd,
@@ -37,7 +39,9 @@ export function MailboxConnectionView({
   const [maxResults, setMaxResults] = useState(5)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
 
-  if (!mailbox) return <div className="page"><p>Aucune boîte configurée.</p></div>
+  if (readOnly) return <div className="page mailbox-page"><div className="page-header"><div><h1>Profil de démonstration</h1><p>Ce profil public est volontairement séparé des connexions Gmail et Outlook réelles.</p></div></div><section className="surface demo-profile-card"><span className="empty-icon">D</span><div><h2>Un espace sûr pour explorer</h2><p>Les destinations et règles sont consultables en lecture seule. Utilisez <strong>Classement → Tester</strong> pour simuler un email : aucun message réel n’est lu et aucun historique n’est créé.</p></div></section></div>
+
+  if (!mailbox) return <div className="page mailbox-page"><div className="page-header mailbox-settings-header"><div><h1>Boîtes connectées</h1><p>Ajoutez votre première boîte pour commencer. Chaque connexion gardera ses propres règles et son historique.</p></div><div className="add-mailbox-actions"><button className="button secondary" type="button" disabled={busy} onClick={() => onAdd('Gmail')}>+ Gmail</button><button className="button primary" type="button" disabled={busy} onClick={() => onAdd('Outlook')}>+ Outlook</button></div></div><section className="surface empty-state"><span className="empty-icon">@</span><h3>Aucune boîte configurée</h3><p>La connexion passe par la page de consentement officielle du fournisseur. Mail Manager ne reçoit jamais votre mot de passe.</p></section></div>
   const provider = mailbox.provider
   const isGmail = provider === 'Gmail'
   const configuration = configurations[provider]

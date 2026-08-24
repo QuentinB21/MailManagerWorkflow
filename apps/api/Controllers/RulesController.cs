@@ -2,6 +2,7 @@ using MailManager.Api.Contracts;
 using MailManager.Api.Data;
 using MailManager.Api.Domain;
 using MailManager.Api.Services;
+using MailManager.Api.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,13 +10,17 @@ namespace MailManager.Api.Controllers;
 
 [ApiController]
 [Route("api/rules")]
-public sealed class RulesController(MailManagerDbContext dbContext) : ControllerBase
+public sealed class RulesController(
+    MailManagerDbContext dbContext,
+    MailboxAccessService mailboxAccess,
+    CurrentUser currentUser) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyCollection<RuleResponse>>> GetAll(
         [FromQuery] Guid mailboxConnectionId,
         CancellationToken cancellationToken)
     {
+        if (!await mailboxAccess.CanAccessAsync(mailboxConnectionId, cancellationToken)) return NotFound();
         var rules = await dbContext.ClassificationRules
             .AsNoTracking()
             .Include(x => x.DestinationLabel)
@@ -34,7 +39,9 @@ public sealed class RulesController(MailManagerDbContext dbContext) : Controller
             .AsNoTracking()
             .Include(x => x.DestinationLabel)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        return rule is null ? NotFound() : Ok(ToResponse(rule));
+        return rule is null || !await mailboxAccess.CanAccessAsync(rule.MailboxConnectionId, cancellationToken)
+            ? NotFound()
+            : Ok(ToResponse(rule));
     }
 
     [HttpPost]
@@ -42,6 +49,7 @@ public sealed class RulesController(MailManagerDbContext dbContext) : Controller
         RuleRequest request,
         CancellationToken cancellationToken)
     {
+        if (currentUser.IsDemo) return Forbid();
         var validation = await ValidateRequest(request, null, cancellationToken);
         if (validation is not null)
         {
@@ -73,10 +81,11 @@ public sealed class RulesController(MailManagerDbContext dbContext) : Controller
         RuleRequest request,
         CancellationToken cancellationToken)
     {
+        if (currentUser.IsDemo) return Forbid();
         var rule = await dbContext.ClassificationRules
             .Include(x => x.DestinationLabel)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (rule is null)
+        if (rule is null || !await mailboxAccess.CanAccessAsync(rule.MailboxConnectionId, cancellationToken))
         {
             return NotFound();
         }
@@ -103,8 +112,9 @@ public sealed class RulesController(MailManagerDbContext dbContext) : Controller
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
+        if (currentUser.IsDemo) return Forbid();
         var rule = await dbContext.ClassificationRules.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (rule is null)
+        if (rule is null || !await mailboxAccess.CanAccessAsync(rule.MailboxConnectionId, cancellationToken))
         {
             return NotFound();
         }
@@ -132,6 +142,11 @@ public sealed class RulesController(MailManagerDbContext dbContext) : Controller
         if (existing is not null && existing.MailboxConnectionId != request.MailboxConnectionId)
         {
             return "Une règle ne peut pas être déplacée vers une autre boîte.";
+        }
+
+        if (!await mailboxAccess.CanAccessAsync(request.MailboxConnectionId, cancellationToken))
+        {
+            return "Boîte mail introuvable.";
         }
 
         var labelExists = await dbContext.LabelDefinitions.AnyAsync(
