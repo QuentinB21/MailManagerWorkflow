@@ -72,6 +72,8 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
       Database__ApplyMigrations: "true"
+      DataRetention__ProcessingLogsDays: ${PROCESSING_LOG_RETENTION_DAYS:-90}
+      DataRetention__CleanupIntervalHours: ${DATA_RETENTION_CLEANUP_HOURS:-24}
       WebOrigin: http://localhost:5173
       Gmail__ClientId: ${GMAIL_CLIENT_ID:-}
       Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET:-}
@@ -105,6 +107,19 @@ services:
         VITE_KEYCLOAK_URL: http://localhost:8081
         VITE_KEYCLOAK_REALM: mail-manager
         VITE_KEYCLOAK_CLIENT_ID: mail-manager-web
+        VITE_LEGAL_PUBLISHER_DISCLOSURE_MODE: ${LEGAL_PUBLISHER_DISCLOSURE_MODE:-identified}
+        VITE_LEGAL_PUBLISHER_NAME: ${LEGAL_PUBLISHER_NAME:-}
+        VITE_LEGAL_PUBLISHER_FORM: ${LEGAL_PUBLISHER_FORM:-}
+        VITE_LEGAL_PUBLISHER_ADDRESS: ${LEGAL_PUBLISHER_ADDRESS:-}
+        VITE_LEGAL_PUBLISHER_EMAIL: ${LEGAL_PUBLISHER_EMAIL:-}
+        VITE_LEGAL_PUBLISHER_PHONE: ${LEGAL_PUBLISHER_PHONE:-}
+        VITE_LEGAL_REGISTRATION_NUMBER: ${LEGAL_REGISTRATION_NUMBER:-}
+        VITE_LEGAL_PUBLICATION_DIRECTOR: ${LEGAL_PUBLICATION_DIRECTOR:-}
+        VITE_LEGAL_HOST_NAME: ${LEGAL_HOST_NAME:-}
+        VITE_LEGAL_HOST_ADDRESS: ${LEGAL_HOST_ADDRESS:-}
+        VITE_LEGAL_HOST_PHONE: ${LEGAL_HOST_PHONE:-}
+        VITE_LEGAL_HOSTING_LOCATION: ${LEGAL_HOSTING_LOCATION:-}
+        VITE_LEGAL_PRIVACY_EMAIL: ${LEGAL_PRIVACY_EMAIL:-}
     ports:
       - "5173:80"
     depends_on:

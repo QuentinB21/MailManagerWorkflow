@@ -8,6 +8,7 @@ import { WorkflowTestView, type EmailFormState } from './components/WorkflowTest
 import { MailboxConnectionView } from './components/MailboxConnectionView'
 import type { ClassificationResult, GmailOAuthConfiguration, Label, Mailbox, MailboxSyncResult, MailProvider, ProcessingLog, ProviderConfiguration, Rule } from './types'
 import { useAuth } from './auth'
+import { AccountPrivacyPanel } from './components/AccountPrivacyPanel'
 
 type ClassificationSection = 'rules' | 'destinations' | 'test'
 const splitValues = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean)
@@ -174,6 +175,26 @@ function App() {
   async function disconnectMailbox() { if (!mailbox) return; setBusy(true); setError(''); try { if (mailbox.provider === 'Gmail') await api.disconnectGmail(mailbox.id); else await api.disconnectOutlook(mailbox.id); setMailboxSyncResult(undefined); await loadMailboxes(mailbox.id); setNotice(`Le compte ${mailbox.provider} a été déconnecté.`) } catch (err) { setError((err as Error).message) } finally { setBusy(false) } }
   async function deleteMailbox() { if (!mailbox) return; setBusy(true); setError(''); try { await api.deleteMailbox(mailbox.id); const items = await api.mailboxes(); setMailboxes(items); setMailbox(items[0]); setNotice('Entrée de boîte supprimée.') } catch (err) { setError((err as Error).message) } finally { setBusy(false) } }
 
+  async function exportAccountData() {
+    setBusy(true); setError('')
+    try {
+      const { blob, filename } = await api.exportAccountData()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url; link.download = filename; link.click()
+      URL.revokeObjectURL(url)
+      setNotice('Export de vos données téléchargé.')
+    } catch (err) { setError((err as Error).message) } finally { setBusy(false) }
+  }
+
+  async function deleteAccountData() {
+    setBusy(true); setError('')
+    try {
+      await api.deleteAccountData()
+      await auth.logout()
+    } catch (err) { setError((err as Error).message); setBusy(false) }
+  }
+
   return (
     <AppShell activeView={activeView} mailbox={mailbox} mailboxes={mailboxes} onSelectMailbox={selectMailbox} onNavigate={setActiveView}>
       {error && <div className="global-message error" role="alert"><span>!</span><p>{error}</p><button onClick={() => setError('')} aria-label="Fermer">×</button></div>}
@@ -187,7 +208,7 @@ function App() {
         </>}
       </div>}
       {activeView === 'activity' && <div className="page"><div className="page-header"><div><h1>Activité</h1><p>Décisions et actions fournisseur pour la boîte {mailbox?.provider} sélectionnée.</p></div></div><HistoryTable logs={logs} onRefresh={refreshHistory} busy={busy} /></div>}
-      {activeView === 'settings' && <MailboxConnectionView mailboxes={mailboxes} selectedMailbox={mailbox} configurations={configurations} busy={busy} readOnly={auth.isDemo} syncResult={mailboxSyncResult} onSelect={selectMailbox} onAdd={addMailbox} onConnect={connectMailbox} onTestConnection={testMailboxConnection} onSync={syncMailbox} onDisconnect={disconnectMailbox} onDelete={deleteMailbox} />}
+      {activeView === 'settings' && <><MailboxConnectionView mailboxes={mailboxes} selectedMailbox={mailbox} configurations={configurations} busy={busy} readOnly={auth.isDemo} syncResult={mailboxSyncResult} onSelect={selectMailbox} onAdd={addMailbox} onConnect={connectMailbox} onTestConnection={testMailboxConnection} onSync={syncMailbox} onDisconnect={disconnectMailbox} onDelete={deleteMailbox} />{!auth.isDemo && <AccountPrivacyPanel busy={busy} onExport={() => void exportAccountData()} onDeleteData={() => void deleteAccountData()} onManageIdentity={() => void auth.manageAccount()} />}</>}
     </AppShell>
   )
 }

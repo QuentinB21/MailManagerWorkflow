@@ -1,4 +1,4 @@
-import type { ClassificationResult, GmailOAuthConfiguration, Label, Mailbox, MailboxSyncResult, MailProvider, ProcessingLog, ProviderConfiguration, Rule, WorkflowResult } from './types'
+import type { ClassificationResult, GmailOAuthConfiguration, Label, LegalStatus, Mailbox, MailboxSyncResult, MailProvider, ProcessingLog, ProviderConfiguration, Rule, WorkflowResult } from './types'
 import { getAccessToken } from './auth'
 
 const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
@@ -26,7 +26,28 @@ async function requestUrl<T>(url: string, options?: RequestInit): Promise<T> {
 
 const request = <T>(path: string, options?: RequestInit) => requestUrl<T>(`${baseUrl}${path}`, options)
 
+async function accountExport() {
+  const token = await getAccessToken()
+  const response = await fetch(`${baseUrl}/api/account/export`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    throw new Error(payload?.error ?? payload?.detail ?? `Erreur API (${response.status})`)
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const filename = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)?.[1]
+  return { blob: await response.blob(), filename: filename ? decodeURIComponent(filename) : 'mail-manager-export.json' }
+}
+
 export const api = {
+  legalStatus: () => request<LegalStatus>('/api/account/legal-status'),
+  acceptLegalDocuments: () => request<LegalStatus>('/api/account/legal-acceptance', {
+    method: 'POST',
+    body: JSON.stringify({ acceptTerms: true, acknowledgePrivacy: true }),
+  }),
+  exportAccountData: accountExport,
+  deleteAccountData: () => request<void>('/api/account/data', { method: 'DELETE' }),
   mailboxes: () => request<Mailbox[]>('/api/mailboxes'),
   createMailbox: (provider: MailProvider) =>
     request<Mailbox>('/api/mailboxes', { method: 'POST', body: JSON.stringify({ provider }) }),

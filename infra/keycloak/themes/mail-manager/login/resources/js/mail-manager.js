@@ -51,6 +51,42 @@ const initializePasswordToggles = () => {
   });
 };
 
+const mailManagerAppOrigin = () => {
+  const redirectUri = new URLSearchParams(window.location.search).get('redirect_uri');
+  if (redirectUri) {
+    try {
+      const parsed = new URL(redirectUri);
+      if (['http:', 'https:'].includes(parsed.protocol)) return parsed.origin;
+    } catch {
+      // Une URL OAuth invalide est ignorée ; Keycloak la rejettera indépendamment.
+    }
+  }
+  return 'http://localhost:5173';
+};
+
+const initializeLegalLinks = () => {
+  if (document.querySelector('.mm-legal-links')) return;
+  const target = document.querySelector('#kc-content-wrapper, .pf-v5-c-login__main-body, .pf-c-login__main-body, .card-pf');
+  if (!(target instanceof HTMLElement)) return;
+  const base = mailManagerAppOrigin();
+  const language = document.documentElement.lang?.toLowerCase().startsWith('en') ? 'en' : 'fr';
+  const labels = language === 'fr'
+    ? [['Mentions légales', '/mentions-legales'], ['Confidentialité', '/politique-confidentialite'], ["Conditions d’utilisation", '/conditions-utilisation'], ['Cookies', '/cookies']]
+    : [['Legal notice', '/mentions-legales'], ['Privacy', '/politique-confidentialite'], ['Terms of use', '/conditions-utilisation'], ['Cookies', '/cookies']];
+  const nav = document.createElement('nav');
+  nav.className = 'mm-legal-links';
+  nav.setAttribute('aria-label', language === 'fr' ? 'Informations légales' : 'Legal information');
+  labels.forEach(([label, path]) => {
+    const link = document.createElement('a');
+    link.href = `${base}${path}`;
+    link.target = '_blank';
+    link.rel = 'noreferrer';
+    link.textContent = label;
+    nav.append(link);
+  });
+  target.append(nav);
+};
+
 const registrationCopy = {
   fr: {
     profile: 'Profil',
@@ -139,6 +175,14 @@ const initializeRegistrationSteps = () => {
   form.insertBefore(securityStep, anchor);
   profileGroups.forEach((group) => profileStep.append(group));
   securityGroups.forEach((group) => securityStep.append(group));
+
+  const legalNotice = document.createElement('p');
+  legalNotice.className = 'mm-registration-legal';
+  const appOrigin = mailManagerAppOrigin();
+  legalNotice.innerHTML = language === 'fr'
+    ? `Avant le premier accès, vous devrez accepter les <a href="${appOrigin}/conditions-utilisation" target="_blank" rel="noreferrer">conditions d’utilisation</a> et reconnaître avoir lu la <a href="${appOrigin}/politique-confidentialite" target="_blank" rel="noreferrer">politique de confidentialité</a>.`
+    : `Before first access, you will need to accept the <a href="${appOrigin}/conditions-utilisation" target="_blank" rel="noreferrer">terms of use</a> and acknowledge the <a href="${appOrigin}/politique-confidentialite" target="_blank" rel="noreferrer">privacy policy</a>.`;
+  securityStep.append(legalNotice);
 
   const nextArea = document.createElement('div');
   nextArea.className = 'mm-register-actions mm-register-actions--next';
@@ -242,6 +286,7 @@ const initializeMailManagerTheme = () => {
   initializeMailManagerDemo();
   initializePasswordToggles();
   initializeRegistrationSteps();
+  initializeLegalLinks();
 };
 
 if (document.readyState === 'loading') {

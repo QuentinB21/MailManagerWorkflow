@@ -19,6 +19,7 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
     public DbSet<ClassificationRule> ClassificationRules => Set<ClassificationRule>();
     public DbSet<ProcessingLog> ProcessingLogs => Set<ProcessingLog>();
     public DbSet<GmailOAuthConfiguration> GmailOAuthConfigurations => Set<GmailOAuthConfiguration>();
+    public DbSet<LegalAcceptance> LegalAcceptances => Set<LegalAcceptance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -105,6 +106,14 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
             Color = "#2563eb",
             IsActive = true,
             CreatedAt = seedDate
+        });
+
+        modelBuilder.Entity<LegalAcceptance>(entity =>
+        {
+            entity.Property(x => x.OwnerSubject).HasMaxLength(200);
+            entity.Property(x => x.TermsVersion).HasMaxLength(30);
+            entity.Property(x => x.PrivacyVersion).HasMaxLength(30);
+            entity.HasIndex(x => x.OwnerSubject).IsUnique();
         });
         modelBuilder.Entity<ClassificationRule>().HasData(new ClassificationRule
         {

@@ -99,3 +99,10 @@ export type ProviderConfiguration = {
   isConfigured: boolean
   source: string
 }
+
+export type LegalStatus = {
+  isAccepted: boolean
+  termsVersion: string
+  privacyVersion: string
+  acceptedAt?: string
+}

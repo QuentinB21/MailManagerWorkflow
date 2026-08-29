@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { Mailbox } from '../types'
 import { useAuth } from '../auth'
+import { LegalLinks } from './LegalLinks'
 
 export type AppView = 'classification' | 'activity' | 'settings'
 
@@ -54,7 +55,7 @@ export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox,
         {navItems.map((item) => <button key={item.id} type="button" className={activeView === item.id ? 'nav-item active' : 'nav-item'} onClick={() => onNavigate(item.id)} aria-current={activeView === item.id ? 'page' : undefined}><span className="nav-icon">{item.icon}</span><span className="nav-label desktop-label">{item.label}</span><span className="nav-label mobile-label">{item.mobileLabel}</span></button>)}
         <span className="nav-indicator" aria-hidden="true" />
       </nav>
-      <main className="app-content"><div className="view-frame" key={activeView}>{children}</div></main>
+      <main className="app-content"><div className="view-frame" key={activeView}>{children}</div><footer className="app-legal-footer"><LegalLinks /><span>© {new Date().getFullYear()} Mail Manager</span></footer></main>
     </div>
   )
 }

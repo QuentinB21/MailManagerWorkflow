@@ -22,6 +22,7 @@ builder.Services.AddDbContext<MailManagerDbContext>(options =>
 builder.Services.Configure<GmailOptions>(builder.Configuration.GetSection(GmailOptions.SectionName));
 builder.Services.Configure<OutlookOptions>(builder.Configuration.GetSection(OutlookOptions.SectionName));
 builder.Services.Configure<AuthenticationOptions>(builder.Configuration.GetSection(AuthenticationOptions.SectionName));
+builder.Services.Configure<DataRetentionOptions>(builder.Configuration.GetSection(DataRetentionOptions.SectionName));
 var authenticationOptions = builder.Configuration
     .GetSection(AuthenticationOptions.SectionName)
     .Get<AuthenticationOptions>()
@@ -57,6 +58,8 @@ builder.Services.AddScoped<MailboxProviderResolver>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<MailboxAccessService>();
+builder.Services.AddScoped<AccountDataService>();
+builder.Services.AddHostedService<DataRetentionCleanupService>();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -92,7 +95,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddCors(options => options.AddPolicy("Web", policy =>
     policy.WithOrigins(builder.Configuration["WebOrigin"] ?? "http://localhost:5173")
         .AllowAnyHeader()
-        .AllowAnyMethod()));
+        .AllowAnyMethod()
+        .WithExposedHeaders("Content-Disposition")));
 
 var app = builder.Build();
 

@@ -1,14 +1,21 @@
 import App from '../App'
 import { useAuth } from '../auth'
+import { legalDocumentFromPath } from '../legal'
+import { LegalAcceptanceBoundary } from './LegalAcceptanceBoundary'
+import { LegalLinks } from './LegalLinks'
+import { LegalPage } from './LegalPage'
 
 export function AuthBoundary() {
   const auth = useAuth()
+  const legalDocument = legalDocumentFromPath(window.location.pathname)
+
+  if (legalDocument) return <LegalPage kind={legalDocument} />
 
   if (!auth.ready) {
     return <main className="auth-loading" aria-live="polite"><img src="/logo.svg" alt="" /><span>Préparation de Mail Manager…</span></main>
   }
 
-  if (auth.authenticated) return <App />
+  if (auth.authenticated) return <LegalAcceptanceBoundary><App /></LegalAcceptanceBoundary>
 
   return (
     <main className="auth-page">
@@ -32,8 +39,7 @@ export function AuthBoundary() {
           <small>Données partagées et lecture seule · aucune donnée personnelle requise</small>
         </aside>
       </section>
-      <footer className="auth-footer"><span>POC pédagogique d’automatisation</span><span>Gmail · Outlook · n8n</span></footer>
+      <footer className="auth-footer"><LegalLinks className="auth-legal-links" /><span>Gmail · Outlook · n8n</span></footer>
     </main>
   )
 }
-

@@ -2,6 +2,8 @@
 
 Le MVP accepte plusieurs utilisateurs et plusieurs connexions Gmail ou Outlook. Keycloak authentifie les utilisateurs ; chaque boîte est rattachée au claim `sub`, puis ses règles, destinations et historiques sont isolés via `MailboxConnectionId`. La configuration est détaillée dans [docs/authentication.md](docs/authentication.md), [docs/gmail-setup.md](docs/gmail-setup.md) et [docs/outlook-setup.md](docs/outlook-setup.md).
 
+Le socle de conformité (pages légales, information RGPD, acceptation versionnée, export, effacement et rétention) est documenté dans [docs/legal-compliance.md](docs/legal-compliance.md). Les coordonnées `LEGAL_*` doivent impérativement être renseignées avant toute publication.
+
 POC de classement automatisé d'emails. Le flux démontrable reçoit un email normalisé fictif dans n8n, délègue la décision à une API ASP.NET Core, puis conserve un historique minimal dans PostgreSQL. L'interface React permet de gérer les règles et de simuler leur résultat sans toucher à une boîte réelle.
 
 ## Ce que couvre le MVP
@@ -20,7 +22,9 @@ POC de classement automatisé d'emails. Le flux démontrable reçoit un email no
 - workflow n8n importable avec branches « classé » et « non classé » ;
 - connexion OAuth d’une boîte Gmail depuis React et classement automatique des nouveaux emails ;
 - création et application automatiques du label réel dans Gmail ;
-- historique sans stockage du sujet ni du corps complet.
+- historique sans corps complet et avec aperçu du sujet limité à 250 caractères ;
+- pages légales publiques, export et effacement des données utilisateur ;
+- purge automatique de l’historique après 90 jours par défaut.
 
 ## Structure
 

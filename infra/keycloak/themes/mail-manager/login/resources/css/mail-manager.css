@@ -416,6 +416,30 @@ a {
   text-align: center;
 }
 
+.mm-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .45rem .8rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--mm-line);
+  font: 500 .62rem "IBM Plex Mono", monospace;
+}
+
+.mm-legal-links a,
+.mm-registration-legal a {
+  color: var(--mm-primary-dark);
+  text-underline-offset: 2px;
+}
+
+.mm-registration-legal {
+  margin: .25rem 0 0;
+  color: var(--mm-muted);
+  font-size: .69rem;
+  line-height: 1.5;
+}
+
 .mm-register {
   display: block;
 }
