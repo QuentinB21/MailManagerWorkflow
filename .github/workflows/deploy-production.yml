@@ -1,0 +1,81 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test API and domain
+        run: dotnet test MailManagerWorkflow.sln --configuration Release
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install client dependencies
+        working-directory: apps/web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build client
+        working-directory: apps/web
+        env:
+          VITE_API_URL: /projets/MailManager
+          VITE_N8N_WEBHOOK_URL: /projets/MailManager/webhook/mail-manager/email
+          VITE_N8N_GMAIL_WEBHOOK_URL: /projets/MailManager/webhook/mail-manager/gmail/sync
+          VITE_KEYCLOAK_URL: https://quentin-bouchot.fr/projets/MailManager/auth
+          VITE_KEYCLOAK_REALM: mail-manager
+          VITE_KEYCLOAK_CLIENT_ID: mail-manager-web
+        run: pnpm build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: production
+
+    steps:
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust remote host
+        run: ssh-keyscan -p "${{ secrets.SSH_PORT }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "
+            set -e
+            docker network inspect public-proxy >/dev/null 2>&1 || docker network create public-proxy
+            cd '$DEPLOY_PATH'
+            git fetch --all
+            git checkout master
+            git reset --hard origin/master
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build --remove-orphans
+          "
