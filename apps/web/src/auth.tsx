@@ -7,6 +7,8 @@ const keycloak = new Keycloak({
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'mail-manager-web',
 })
 
+const appUrl = new URL(import.meta.env.BASE_URL, window.location.origin).href
+
 let initialization: Promise<boolean> | undefined
 
 const initialize = () => {
@@ -47,8 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true
     keycloak.onAuthSuccess = () => active && setAuthenticated(true)
     keycloak.onAuthLogout = () => active && setAuthenticated(false)
-    keycloak.onAuthRefreshError = () => void keycloak.login({ redirectUri: window.location.origin })
-    keycloak.onTokenExpired = () => void keycloak.updateToken(30).catch(() => keycloak.login())
+    keycloak.onAuthRefreshError = () => void keycloak.login({ redirectUri: appUrl })
+    keycloak.onTokenExpired = () => void keycloak.updateToken(30).catch(() => keycloak.login({ redirectUri: appUrl }))
     initialize()
       .then((value) => active && setAuthenticated(value))
       .finally(() => active && setReady(true))
@@ -64,10 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       displayName: token?.name ?? token?.preferred_username ?? 'Utilisateur',
       username: token?.preferred_username ?? '',
       isDemo: roles.includes('demo'),
-      login: () => keycloak.login({ redirectUri: window.location.origin, locale: 'fr' }),
-      register: () => keycloak.register({ redirectUri: window.location.origin, locale: 'fr' }),
-      tryDemo: () => keycloak.login({ redirectUri: window.location.origin, loginHint: 'demo', locale: 'fr', prompt: 'login' }),
-      logout: () => keycloak.logout({ redirectUri: window.location.origin }),
+      login: () => keycloak.login({ redirectUri: appUrl, locale: 'fr' }),
+      register: () => keycloak.register({ redirectUri: appUrl, locale: 'fr' }),
+      tryDemo: () => keycloak.login({ redirectUri: appUrl, loginHint: 'demo', locale: 'fr', prompt: 'login' }),
+      logout: () => keycloak.logout({ redirectUri: appUrl }),
       manageAccount: () => keycloak.accountManagement(),
     }
   }, [authenticated, ready])
@@ -80,4 +82,3 @@ export function useAuth() {
   if (!context) throw new Error('useAuth doit être utilisé dans AuthProvider.')
   return context
 }
-

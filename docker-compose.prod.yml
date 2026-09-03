@@ -1,0 +1,208 @@
+name: mail-manager-workflow-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - mail-manager-internal
+
+  keycloak-db-init:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:?POSTGRES_DB must be set}
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    command: ["sh", "-c", "psql -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS keycloak'"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - mail-manager-internal
+
+  keycloak:
+    build:
+      context: .
+      dockerfile: infra/keycloak/Dockerfile
+    image: mail-manager-workflow-keycloak:26.7.1
+    command:
+      - start
+      - --import-realm
+    restart: unless-stopped
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      KC_DB_SCHEMA: keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HOSTNAME: https://quentin-bouchot.fr/projets/MailManager/auth
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN must be set}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set}
+      KEYCLOAK_LOCAL_USER_PASSWORD: ${KEYCLOAK_LOCAL_USER_PASSWORD:?KEYCLOAK_LOCAL_USER_PASSWORD must be set}
+      N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:?N8N_API_CLIENT_SECRET must be set}
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    mem_limit: 1g
+    networks:
+      mail-manager-internal:
+      public-proxy:
+        aliases:
+          - mail-manager-keycloak
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      Database__ApplyMigrations: "true"
+      DataRetention__ProcessingLogsDays: ${PROCESSING_LOG_RETENTION_DAYS:-90}
+      DataRetention__CleanupIntervalHours: ${DATA_RETENTION_CLEANUP_HOURS:-24}
+      WebOrigin: https://quentin-bouchot.fr
+      Gmail__ClientId: ${GMAIL_CLIENT_ID}
+      Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET}
+      Gmail__RedirectUri: https://quentin-bouchot.fr/projets/MailManager/api/gmail/oauth/callback
+      Gmail__WebAppUrl: https://quentin-bouchot.fr/projets/MailManager
+      Outlook__ClientId: ${OUTLOOK_CLIENT_ID}
+      Outlook__ClientSecret: ${OUTLOOK_CLIENT_SECRET}
+      Outlook__Tenant: ${OUTLOOK_TENANT:-common}
+      Outlook__RedirectUri: https://quentin-bouchot.fr/projets/MailManager/api/outlook/oauth/callback
+      Outlook__WebAppUrl: https://quentin-bouchot.fr/projets/MailManager
+      DataProtection__KeysPath: /var/lib/mail-manager/keys
+      Authentication__MetadataAddress: http://keycloak:8080/auth/realms/mail-manager/.well-known/openid-configuration
+      Authentication__Issuer: https://quentin-bouchot.fr/projets/MailManager/auth/realms/mail-manager
+      Authentication__Audience: mail-manager-api
+      Authentication__RequireHttpsMetadata: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    volumes:
+      - api-data-protection-keys:/var/lib/mail-manager/keys
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      mail-manager-internal:
+      public-proxy:
+        aliases:
+          - mail-manager-api
+
+  web:
+    build:
+      context: apps/web
+      args:
+        VITE_API_URL: /projets/MailManager
+        VITE_N8N_WEBHOOK_URL: /projets/MailManager/webhook/mail-manager/email
+        VITE_N8N_GMAIL_WEBHOOK_URL: /projets/MailManager/webhook/mail-manager/gmail/sync
+        VITE_KEYCLOAK_URL: https://quentin-bouchot.fr/projets/MailManager/auth
+        VITE_KEYCLOAK_REALM: mail-manager
+        VITE_KEYCLOAK_CLIENT_ID: mail-manager-web
+        VITE_LEGAL_PUBLISHER_DISCLOSURE_MODE: ${LEGAL_PUBLISHER_DISCLOSURE_MODE:-identified}
+        VITE_LEGAL_PUBLISHER_NAME: ${LEGAL_PUBLISHER_NAME}
+        VITE_LEGAL_PUBLISHER_FORM: ${LEGAL_PUBLISHER_FORM}
+        VITE_LEGAL_PUBLISHER_ADDRESS: ${LEGAL_PUBLISHER_ADDRESS}
+        VITE_LEGAL_PUBLISHER_EMAIL: ${LEGAL_PUBLISHER_EMAIL}
+        VITE_LEGAL_PUBLISHER_PHONE: ${LEGAL_PUBLISHER_PHONE}
+        VITE_LEGAL_REGISTRATION_NUMBER: ${LEGAL_REGISTRATION_NUMBER}
+        VITE_LEGAL_PUBLICATION_DIRECTOR: ${LEGAL_PUBLICATION_DIRECTOR}
+        VITE_LEGAL_HOST_NAME: ${LEGAL_HOST_NAME}
+        VITE_LEGAL_HOST_ADDRESS: ${LEGAL_HOST_ADDRESS}
+        VITE_LEGAL_HOST_PHONE: ${LEGAL_HOST_PHONE}
+        VITE_LEGAL_HOSTING_LOCATION: ${LEGAL_HOSTING_LOCATION}
+        VITE_LEGAL_PRIVACY_EMAIL: ${LEGAL_PRIVACY_EMAIL}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      mail-manager-internal:
+      public-proxy:
+        aliases:
+          - mail-manager-web
+
+  n8n:
+    build:
+      context: .
+      dockerfile: infra/n8n/Dockerfile
+    image: mail-manager-workflow-n8n:2.34.4
+    restart: unless-stopped
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY must be set}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Europe/Paris}
+      TZ: ${GENERIC_TIMEZONE:-Europe/Paris}
+      N8N_SECURE_COOKIE: "true"
+      N8N_PROXY_HOPS: "1"
+      WEBHOOK_URL: https://quentin-bouchot.fr/projets/MailManager/
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_BOOTSTRAP_FORCE_IMPORT: ${N8N_BOOTSTRAP_FORCE_IMPORT:-false}
+      N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:?N8N_API_CLIENT_SECRET must be set}
+      KEYCLOAK_TOKEN_URL: http://keycloak:8080/auth/realms/mail-manager/protocol/openid-connect/token
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+    volumes:
+      - n8n-data:/home/node/.n8n
+    depends_on:
+      api:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5678/healthz').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      mail-manager-internal:
+      public-proxy:
+        aliases:
+          - mail-manager-n8n
+
+volumes:
+  postgres-data:
+  n8n-data:
+  api-data-protection-keys:
+
+networks:
+  mail-manager-internal:
+  public-proxy:
+    external: true

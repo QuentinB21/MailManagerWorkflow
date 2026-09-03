@@ -36,6 +36,7 @@ infra/n8n/workflows/         Exports JSON n8n versionnés
 infra/keycloak/              Realm, image et thème de connexion versionnés
 docs/                        Documentation d'architecture
 compose.yml                  Environnement local complet
+docker-compose.prod.yml      Déploiement VPS derrière le proxy du portfolio
 ```
 
 ## Prérequis
@@ -132,6 +133,15 @@ Pour créer un traitement distinct, changez l'identifiant externe. Réutiliser l
 
 Le webhook de test relaie le jeton de l’utilisateur connecté : un appel anonyme ou visant la boîte d’un autre utilisateur est rejeté. Le workflow automatique obtient quant à lui un jeton `client_credentials` auprès de Keycloak avant d’appeler l’API avec le rôle `automation`. Il utilise les noms de services Compose `http://keycloak:8080` et `http://api:8080`. Si n8n est lancé hors Compose, adaptez ces URL et protégez le secret du client de service.
 
+## Déploiement sur le portfolio
+
+La configuration de production expose l’application sous
+`https://quentin-bouchot.fr/projets/MailManager/`, via le réseau Docker
+partagé `public-proxy`, sans publier directement les ports de l’API, de
+PostgreSQL, de Keycloak ou de n8n. Le déploiement initial, les secrets attendus
+et les contrôles après mise en ligne sont détaillés dans
+[docs/production.md](docs/production.md).
+
 ## Exécuter les compilations et tests
 
 Backend et tests :
@@ -176,8 +186,9 @@ Les valeurs sont nettoyées, les espaces multiples sont réduits et les comparai
 
 ## Limites actuelles
 
-- connexion Gmail limitée au développement local ; détection automatique par interrogation chaque minute plutôt que Gmail Push/Pub/Sub ;
-- le realm versionné est optimisé pour le développement local ; les domaines et le mode de démarrage Keycloak doivent être durcis pour le VPS ;
+- détection automatique Gmail par interrogation chaque minute plutôt que Gmail Push/Pub/Sub ;
+- les clients OAuth Google et Microsoft doivent être configurés et autorisés pour les URI publiques avant leur utilisation en production ;
+- un realm Keycloak déjà importé doit être mis à jour manuellement, car un nouvel import JSON ne remplace pas sa configuration ;
 - aucune validation d’adresse email ni récupération de mot de passe tant qu’un serveur SMTP Keycloak n’est pas configuré ;
 - aucune génération de résumé ;
 - aucun mécanisme de retry/dead-letter autour des appels fournisseur ;
