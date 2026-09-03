@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER must be set} -d ${POSTGRES_DB:?POSTGRES_DB must be set}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
       KC_DB_SCHEMA: keycloak
       KC_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER must be set}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
@@ -83,18 +83,18 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:?POSTGRES_DB must be set};Username=${POSTGRES_USER:?POSTGRES_USER must be set};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       Database__ApplyMigrations: "true"
-      DataRetention__ProcessingLogsDays: ${PROCESSING_LOG_RETENTION_DAYS:-90}
-      DataRetention__CleanupIntervalHours: ${DATA_RETENTION_CLEANUP_HOURS:-24}
+      DataRetention__ProcessingLogsDays: ${PROCESSING_LOG_RETENTION_DAYS:?PROCESSING_LOG_RETENTION_DAYS must be set}
+      DataRetention__CleanupIntervalHours: ${DATA_RETENTION_CLEANUP_HOURS:?DATA_RETENTION_CLEANUP_HOURS must be set}
       WebOrigin: https://quentin-bouchot.fr
-      Gmail__ClientId: ${GMAIL_CLIENT_ID}
-      Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET}
+      Gmail__ClientId: ${GMAIL_CLIENT_ID:?GMAIL_CLIENT_ID must be set}
+      Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET:?GMAIL_CLIENT_SECRET must be set}
       Gmail__RedirectUri: https://quentin-bouchot.fr/projets/MailManager/api/gmail/oauth/callback
       Gmail__WebAppUrl: https://quentin-bouchot.fr/projets/MailManager
-      Outlook__ClientId: ${OUTLOOK_CLIENT_ID}
-      Outlook__ClientSecret: ${OUTLOOK_CLIENT_SECRET}
-      Outlook__Tenant: ${OUTLOOK_TENANT:-common}
+      Outlook__ClientId: ${OUTLOOK_CLIENT_ID:?OUTLOOK_CLIENT_ID must be set}
+      Outlook__ClientSecret: ${OUTLOOK_CLIENT_SECRET:?OUTLOOK_CLIENT_SECRET must be set}
+      Outlook__Tenant: ${OUTLOOK_TENANT:?OUTLOOK_TENANT must be set}
       Outlook__RedirectUri: https://quentin-bouchot.fr/projets/MailManager/api/outlook/oauth/callback
       Outlook__WebAppUrl: https://quentin-bouchot.fr/projets/MailManager
       DataProtection__KeysPath: /var/lib/mail-manager/keys
@@ -131,19 +131,19 @@ services:
         VITE_KEYCLOAK_URL: https://quentin-bouchot.fr/projets/MailManager/auth
         VITE_KEYCLOAK_REALM: mail-manager
         VITE_KEYCLOAK_CLIENT_ID: mail-manager-web
-        VITE_LEGAL_PUBLISHER_DISCLOSURE_MODE: ${LEGAL_PUBLISHER_DISCLOSURE_MODE:-identified}
-        VITE_LEGAL_PUBLISHER_NAME: ${LEGAL_PUBLISHER_NAME}
-        VITE_LEGAL_PUBLISHER_FORM: ${LEGAL_PUBLISHER_FORM}
-        VITE_LEGAL_PUBLISHER_ADDRESS: ${LEGAL_PUBLISHER_ADDRESS}
-        VITE_LEGAL_PUBLISHER_EMAIL: ${LEGAL_PUBLISHER_EMAIL}
-        VITE_LEGAL_PUBLISHER_PHONE: ${LEGAL_PUBLISHER_PHONE}
-        VITE_LEGAL_REGISTRATION_NUMBER: ${LEGAL_REGISTRATION_NUMBER}
-        VITE_LEGAL_PUBLICATION_DIRECTOR: ${LEGAL_PUBLICATION_DIRECTOR}
-        VITE_LEGAL_HOST_NAME: ${LEGAL_HOST_NAME}
-        VITE_LEGAL_HOST_ADDRESS: ${LEGAL_HOST_ADDRESS}
-        VITE_LEGAL_HOST_PHONE: ${LEGAL_HOST_PHONE}
-        VITE_LEGAL_HOSTING_LOCATION: ${LEGAL_HOSTING_LOCATION}
-        VITE_LEGAL_PRIVACY_EMAIL: ${LEGAL_PRIVACY_EMAIL}
+        VITE_LEGAL_PUBLISHER_DISCLOSURE_MODE: ${LEGAL_PUBLISHER_DISCLOSURE_MODE:?LEGAL_PUBLISHER_DISCLOSURE_MODE must be set}
+        VITE_LEGAL_PUBLISHER_NAME: ${LEGAL_PUBLISHER_NAME:?LEGAL_PUBLISHER_NAME must be set}
+        VITE_LEGAL_PUBLISHER_FORM: ${LEGAL_PUBLISHER_FORM:?LEGAL_PUBLISHER_FORM must be set}
+        VITE_LEGAL_PUBLISHER_ADDRESS: ${LEGAL_PUBLISHER_ADDRESS:?LEGAL_PUBLISHER_ADDRESS must be set}
+        VITE_LEGAL_PUBLISHER_EMAIL: ${LEGAL_PUBLISHER_EMAIL:?LEGAL_PUBLISHER_EMAIL must be set}
+        VITE_LEGAL_PUBLISHER_PHONE: ${LEGAL_PUBLISHER_PHONE:?LEGAL_PUBLISHER_PHONE must be set}
+        VITE_LEGAL_REGISTRATION_NUMBER: ${LEGAL_REGISTRATION_NUMBER:?LEGAL_REGISTRATION_NUMBER must be set}
+        VITE_LEGAL_PUBLICATION_DIRECTOR: ${LEGAL_PUBLICATION_DIRECTOR:?LEGAL_PUBLICATION_DIRECTOR must be set}
+        VITE_LEGAL_HOST_NAME: ${LEGAL_HOST_NAME:?LEGAL_HOST_NAME must be set}
+        VITE_LEGAL_HOST_ADDRESS: ${LEGAL_HOST_ADDRESS:?LEGAL_HOST_ADDRESS must be set}
+        VITE_LEGAL_HOST_PHONE: ${LEGAL_HOST_PHONE:?LEGAL_HOST_PHONE must be set}
+        VITE_LEGAL_HOSTING_LOCATION: ${LEGAL_HOSTING_LOCATION:?LEGAL_HOSTING_LOCATION must be set}
+        VITE_LEGAL_PRIVACY_EMAIL: ${LEGAL_PRIVACY_EMAIL:?LEGAL_PRIVACY_EMAIL must be set}
     restart: unless-stopped
     depends_on:
       api:
@@ -167,14 +167,14 @@ services:
     restart: unless-stopped
     environment:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY must be set}
-      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Europe/Paris}
-      TZ: ${GENERIC_TIMEZONE:-Europe/Paris}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:?GENERIC_TIMEZONE must be set}
+      TZ: ${GENERIC_TIMEZONE:?GENERIC_TIMEZONE must be set}
       N8N_SECURE_COOKIE: "true"
       N8N_PROXY_HOPS: "1"
       WEBHOOK_URL: https://quentin-bouchot.fr/projets/MailManager/
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
-      N8N_BOOTSTRAP_FORCE_IMPORT: ${N8N_BOOTSTRAP_FORCE_IMPORT:-false}
+      N8N_BOOTSTRAP_FORCE_IMPORT: ${N8N_BOOTSTRAP_FORCE_IMPORT:?N8N_BOOTSTRAP_FORCE_IMPORT must be set}
       N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:?N8N_API_CLIENT_SECRET must be set}
       KEYCLOAK_TOKEN_URL: http://keycloak:8080/auth/realms/mail-manager/protocol/openid-connect/token
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"

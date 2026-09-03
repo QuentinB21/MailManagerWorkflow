@@ -58,7 +58,8 @@ Le chemin final doit alors contenir directement `README.md`, `apps`, `infra`,
 Renseigner ensuite toutes les valeurs de `.env.prod`. Les mots de passe, clés
 n8n et secrets OAuth doivent être longs, aléatoires, uniques et ne jamais être
 commités. Les champs `LEGAL_*` publics doivent être complétés avant la mise en
-ligne.
+ligne. Aucune valeur de secours n’est appliquée par Compose : une variable
+absente ou vide interrompt immédiatement la validation avec son nom exact.
 
 Les URI de retour à déclarer chez les fournisseurs OAuth sont exactement :
 

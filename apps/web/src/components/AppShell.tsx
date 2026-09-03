@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { appPath } from '../appPaths'
 import type { Mailbox } from '../types'
 import { useAuth } from '../auth'
 import { LegalLinks } from './LegalLinks'
@@ -27,7 +28,7 @@ export function AppShell({ activeView, mailbox, mailboxes = [], onSelectMailbox,
     <div className="app-shell">
       <header className="topbar">
         <button className="brand brand-button" type="button" onClick={() => onNavigate('classification')} aria-label="Ouvrir le classement">
-          <img className="brand-mark" src="/logo.svg" alt="" aria-hidden="true" />
+          <img className="brand-mark" src={appPath('logo.svg')} alt="" aria-hidden="true" />
           <div><strong>Mail Manager</strong><small>Classement automatique</small></div>
         </button>
         <div className="topbar-actions">

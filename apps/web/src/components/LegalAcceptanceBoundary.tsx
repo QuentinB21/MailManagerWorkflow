@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { appPath } from '../appPaths'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { legalPaths } from '../legal'
@@ -19,8 +20,8 @@ export function LegalAcceptanceBoundary({ children }: { children: ReactNode }) {
   useEffect(load, [])
 
   if (auth.isDemo) return children
-  if (error) return <main className="legal-gate"><section className="legal-gate-card"><img src="/logo.svg" alt="" /><p className="overline">Accès interrompu</p><h1>Impossible de vérifier les conditions.</h1><p>{error}</p><div className="legal-gate-actions"><button className="button primary" type="button" onClick={load}>Réessayer</button><button className="button text" type="button" onClick={() => void auth.logout()}>Se déconnecter</button></div></section></main>
-  if (!status) return <main className="auth-loading" aria-live="polite"><img src="/logo.svg" alt="" /><span>Vérification de votre espace…</span></main>
+  if (error) return <main className="legal-gate"><section className="legal-gate-card"><img src={appPath('logo.svg')} alt="" /><p className="overline">Accès interrompu</p><h1>Impossible de vérifier les conditions.</h1><p>{error}</p><div className="legal-gate-actions"><button className="button primary" type="button" onClick={load}>Réessayer</button><button className="button text" type="button" onClick={() => void auth.logout()}>Se déconnecter</button></div></section></main>
+  if (!status) return <main className="auth-loading" aria-live="polite"><img src={appPath('logo.svg')} alt="" /><span>Vérification de votre espace…</span></main>
   if (status.isAccepted) return children
 
   const submit = async () => {
@@ -33,7 +34,7 @@ export function LegalAcceptanceBoundary({ children }: { children: ReactNode }) {
 
   return <main className="legal-gate">
     <section className="legal-gate-card" aria-labelledby="legal-gate-title">
-      <img src="/logo.svg" alt="" />
+      <img src={appPath('logo.svg')} alt="" />
       <p className="overline">Avant de commencer</p>
       <h1 id="legal-gate-title">Un cadre clair pour vos données.</h1>
       <p>Mail Manager traite la configuration de vos boîtes et lit transitoirement les emails nécessaires au classement. Prenez connaissance des documents applicables avant d’utiliser le service.</p>

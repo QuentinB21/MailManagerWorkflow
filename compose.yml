@@ -4,15 +4,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     ports:
       - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER must be set} -d ${POSTGRES_DB:?POSTGRES_DB must be set}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -22,9 +22,9 @@ services:
     environment:
       PGHOST: postgres
       PGPORT: 5432
-      PGDATABASE: ${POSTGRES_DB}
-      PGUSER: ${POSTGRES_USER}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:?POSTGRES_DB must be set}
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     command: ["sh", "-c", "psql -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA IF NOT EXISTS keycloak'"]
     depends_on:
       postgres:
@@ -44,18 +44,18 @@ services:
       - --spi-theme-static-max-age=-1
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
       KC_DB_SCHEMA: keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       KC_HOSTNAME: http://localhost:8081
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-me-before-public-use}
-      KEYCLOAK_LOCAL_USER_PASSWORD: ${KEYCLOAK_LOCAL_USER_PASSWORD:-change-me-before-public-use}
-      N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:-change-me-before-public-use}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN must be set}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set}
+      KEYCLOAK_LOCAL_USER_PASSWORD: ${KEYCLOAK_LOCAL_USER_PASSWORD:?KEYCLOAK_LOCAL_USER_PASSWORD must be set}
+      N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:?N8N_API_CLIENT_SECRET must be set}
     ports:
       - "8081:8080"
     depends_on:
@@ -70,18 +70,18 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:?POSTGRES_DB must be set};Username=${POSTGRES_USER:?POSTGRES_USER must be set};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       Database__ApplyMigrations: "true"
-      DataRetention__ProcessingLogsDays: ${PROCESSING_LOG_RETENTION_DAYS:-90}
-      DataRetention__CleanupIntervalHours: ${DATA_RETENTION_CLEANUP_HOURS:-24}
+      DataRetention__ProcessingLogsDays: ${PROCESSING_LOG_RETENTION_DAYS:?PROCESSING_LOG_RETENTION_DAYS must be set}
+      DataRetention__CleanupIntervalHours: ${DATA_RETENTION_CLEANUP_HOURS:?DATA_RETENTION_CLEANUP_HOURS must be set}
       WebOrigin: http://localhost:5173
-      Gmail__ClientId: ${GMAIL_CLIENT_ID:-}
-      Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET:-}
+      Gmail__ClientId: ${GMAIL_CLIENT_ID:?GMAIL_CLIENT_ID must be set}
+      Gmail__ClientSecret: ${GMAIL_CLIENT_SECRET:?GMAIL_CLIENT_SECRET must be set}
       Gmail__RedirectUri: http://localhost:8080/api/gmail/oauth/callback
       Gmail__WebAppUrl: http://localhost:5173
-      Outlook__ClientId: ${OUTLOOK_CLIENT_ID:-}
-      Outlook__ClientSecret: ${OUTLOOK_CLIENT_SECRET:-}
-      Outlook__Tenant: ${OUTLOOK_TENANT:-common}
+      Outlook__ClientId: ${OUTLOOK_CLIENT_ID:?OUTLOOK_CLIENT_ID must be set}
+      Outlook__ClientSecret: ${OUTLOOK_CLIENT_SECRET:?OUTLOOK_CLIENT_SECRET must be set}
+      Outlook__Tenant: ${OUTLOOK_TENANT:?OUTLOOK_TENANT must be set}
       Outlook__RedirectUri: http://localhost:8080/api/outlook/oauth/callback
       Outlook__WebAppUrl: http://localhost:5173
       DataProtection__KeysPath: /var/lib/mail-manager/keys
@@ -107,19 +107,19 @@ services:
         VITE_KEYCLOAK_URL: http://localhost:8081
         VITE_KEYCLOAK_REALM: mail-manager
         VITE_KEYCLOAK_CLIENT_ID: mail-manager-web
-        VITE_LEGAL_PUBLISHER_DISCLOSURE_MODE: ${LEGAL_PUBLISHER_DISCLOSURE_MODE:-identified}
-        VITE_LEGAL_PUBLISHER_NAME: ${LEGAL_PUBLISHER_NAME:-}
-        VITE_LEGAL_PUBLISHER_FORM: ${LEGAL_PUBLISHER_FORM:-}
-        VITE_LEGAL_PUBLISHER_ADDRESS: ${LEGAL_PUBLISHER_ADDRESS:-}
-        VITE_LEGAL_PUBLISHER_EMAIL: ${LEGAL_PUBLISHER_EMAIL:-}
-        VITE_LEGAL_PUBLISHER_PHONE: ${LEGAL_PUBLISHER_PHONE:-}
-        VITE_LEGAL_REGISTRATION_NUMBER: ${LEGAL_REGISTRATION_NUMBER:-}
-        VITE_LEGAL_PUBLICATION_DIRECTOR: ${LEGAL_PUBLICATION_DIRECTOR:-}
-        VITE_LEGAL_HOST_NAME: ${LEGAL_HOST_NAME:-}
-        VITE_LEGAL_HOST_ADDRESS: ${LEGAL_HOST_ADDRESS:-}
-        VITE_LEGAL_HOST_PHONE: ${LEGAL_HOST_PHONE:-}
-        VITE_LEGAL_HOSTING_LOCATION: ${LEGAL_HOSTING_LOCATION:-}
-        VITE_LEGAL_PRIVACY_EMAIL: ${LEGAL_PRIVACY_EMAIL:-}
+        VITE_LEGAL_PUBLISHER_DISCLOSURE_MODE: ${LEGAL_PUBLISHER_DISCLOSURE_MODE:?LEGAL_PUBLISHER_DISCLOSURE_MODE must be set}
+        VITE_LEGAL_PUBLISHER_NAME: ${LEGAL_PUBLISHER_NAME:?LEGAL_PUBLISHER_NAME must be set}
+        VITE_LEGAL_PUBLISHER_FORM: ${LEGAL_PUBLISHER_FORM:?LEGAL_PUBLISHER_FORM must be set}
+        VITE_LEGAL_PUBLISHER_ADDRESS: ${LEGAL_PUBLISHER_ADDRESS:?LEGAL_PUBLISHER_ADDRESS must be set}
+        VITE_LEGAL_PUBLISHER_EMAIL: ${LEGAL_PUBLISHER_EMAIL:?LEGAL_PUBLISHER_EMAIL must be set}
+        VITE_LEGAL_PUBLISHER_PHONE: ${LEGAL_PUBLISHER_PHONE:?LEGAL_PUBLISHER_PHONE must be set}
+        VITE_LEGAL_REGISTRATION_NUMBER: ${LEGAL_REGISTRATION_NUMBER:?LEGAL_REGISTRATION_NUMBER must be set}
+        VITE_LEGAL_PUBLICATION_DIRECTOR: ${LEGAL_PUBLICATION_DIRECTOR:?LEGAL_PUBLICATION_DIRECTOR must be set}
+        VITE_LEGAL_HOST_NAME: ${LEGAL_HOST_NAME:?LEGAL_HOST_NAME must be set}
+        VITE_LEGAL_HOST_ADDRESS: ${LEGAL_HOST_ADDRESS:?LEGAL_HOST_ADDRESS must be set}
+        VITE_LEGAL_HOST_PHONE: ${LEGAL_HOST_PHONE:?LEGAL_HOST_PHONE must be set}
+        VITE_LEGAL_HOSTING_LOCATION: ${LEGAL_HOSTING_LOCATION:?LEGAL_HOSTING_LOCATION must be set}
+        VITE_LEGAL_PRIVACY_EMAIL: ${LEGAL_PRIVACY_EMAIL:?LEGAL_PRIVACY_EMAIL must be set}
     ports:
       - "5173:80"
     depends_on:
@@ -131,13 +131,13 @@ services:
       dockerfile: infra/n8n/Dockerfile
     image: mail-manager-workflow-n8n:2.34.4
     environment:
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
-      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Europe/Paris}
-      TZ: ${GENERIC_TIMEZONE:-Europe/Paris}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY must be set}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:?GENERIC_TIMEZONE must be set}
+      TZ: ${GENERIC_TIMEZONE:?GENERIC_TIMEZONE must be set}
       N8N_SECURE_COOKIE: "false"
       N8N_DIAGNOSTICS_ENABLED: "false"
-      N8N_BOOTSTRAP_FORCE_IMPORT: ${N8N_BOOTSTRAP_FORCE_IMPORT:-false}
-      N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:-change-me-before-public-use}
+      N8N_BOOTSTRAP_FORCE_IMPORT: ${N8N_BOOTSTRAP_FORCE_IMPORT:?N8N_BOOTSTRAP_FORCE_IMPORT must be set}
+      N8N_API_CLIENT_SECRET: ${N8N_API_CLIENT_SECRET:?N8N_API_CLIENT_SECRET must be set}
       KEYCLOAK_TOKEN_URL: http://keycloak:8080/realms/mail-manager/protocol/openid-connect/token
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
     ports:

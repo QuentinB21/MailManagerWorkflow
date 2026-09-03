@@ -1,4 +1,5 @@
 import App from '../App'
+import { appPath } from '../appPaths'
 import { useAuth } from '../auth'
 import { legalDocumentFromPath } from '../legal'
 import { LegalAcceptanceBoundary } from './LegalAcceptanceBoundary'
@@ -12,14 +13,14 @@ export function AuthBoundary() {
   if (legalDocument) return <LegalPage kind={legalDocument} />
 
   if (!auth.ready) {
-    return <main className="auth-loading" aria-live="polite"><img src="/logo.svg" alt="" /><span>Préparation de Mail Manager…</span></main>
+    return <main className="auth-loading" aria-live="polite"><img src={appPath('logo.svg')} alt="" /><span>Préparation de Mail Manager…</span></main>
   }
 
   if (auth.authenticated) return <LegalAcceptanceBoundary><App /></LegalAcceptanceBoundary>
 
   return (
     <main className="auth-page">
-      <header className="auth-brand"><img src="/logo.svg" alt="" /><div><strong>Mail Manager</strong><small>Classement automatique</small></div></header>
+      <header className="auth-brand"><img src={appPath('logo.svg')} alt="" /><div><strong>Mail Manager</strong><small>Classement automatique</small></div></header>
       <section className="auth-hero">
         <div className="auth-copy">
           <p className="overline">Votre boîte, enfin lisible</p>

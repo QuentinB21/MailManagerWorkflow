@@ -45,7 +45,9 @@ La voie recommandée nécessite uniquement Docker Desktop avec Docker Compose. P
 
 ## Démarrage avec Docker Compose
 
-1. Créez la configuration locale, puis remplacez toutes les valeurs sensibles par des valeurs longues et aléatoires :
+1. Créez la configuration locale, puis renseignez chaque variable. Les champs vides
+   font volontairement échouer Compose ; utilisez des valeurs longues et aléatoires
+   pour les mots de passe et les secrets :
 
    ```powershell
    Copy-Item .env.example .env

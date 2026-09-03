@@ -16,7 +16,9 @@ L’isolation repose sur `MailboxConnection.OwnerSubject`, qui contient le claim
 
 ## Configuration locale
 
-Copiez `.env.example` vers `.env`, puis remplacez au minimum :
+Copiez `.env.example` vers `.env`, puis renseignez toutes les variables. Compose
+refuse désormais de démarrer dès qu’une valeur est absente ou vide. Les secrets
+suivants doivent notamment être longs, aléatoires et distincts :
 
 ```dotenv
 KEYCLOAK_ADMIN_PASSWORD=<mot-de-passe-administrateur-long-et-aléatoire>

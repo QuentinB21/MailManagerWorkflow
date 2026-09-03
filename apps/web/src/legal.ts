@@ -1,8 +1,10 @@
+import { appPath } from './appPaths'
+
 export const legalPaths = {
-  legalNotice: '/mentions-legales',
-  privacy: '/politique-confidentialite',
-  terms: '/conditions-utilisation',
-  cookies: '/cookies',
+  legalNotice: appPath('mentions-legales'),
+  privacy: appPath('politique-confidentialite'),
+  terms: appPath('conditions-utilisation'),
+  cookies: appPath('cookies'),
 } as const
 
 export type LegalDocumentKind = keyof typeof legalPaths

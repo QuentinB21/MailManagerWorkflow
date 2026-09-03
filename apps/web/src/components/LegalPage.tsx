@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { appHomePath, appPath } from '../appPaths'
 import { legalConfiguration, legalPaths, type LegalDocumentKind } from '../legal'
 import { LegalLinks } from './LegalLinks'
 
@@ -120,7 +121,7 @@ const titles: Record<LegalDocumentKind, { overline: string; title: string }> = {
 export function LegalPage({ kind }: { kind: LegalDocumentKind }) {
   const heading = titles[kind]
   return <main className="legal-page">
-    <header className="legal-topbar"><a className="brand" href="/" aria-label="Revenir à Mail Manager"><img className="brand-mark" src="/logo.svg" alt="" /><div><strong>Mail Manager</strong><small>Classement automatique</small></div></a><a className="legal-back" href="/">← Revenir à l’application</a></header>
+    <header className="legal-topbar"><a className="brand" href={appHomePath} aria-label="Revenir à Mail Manager"><img className="brand-mark" src={appPath('logo.svg')} alt="" /><div><strong>Mail Manager</strong><small>Classement automatique</small></div></a><a className="legal-back" href={appHomePath}>← Revenir à l’application</a></header>
     <article className="legal-document">
       <header className="legal-heading"><p className="overline">{heading.overline}</p><h1>{heading.title}</h1><p>Version du {updatedAt}</p></header>
       {!legalConfiguration.isComplete && <aside className="legal-warning" role="note"><strong>Version de développement</strong><p>Les coordonnées légales de l’exploitant ne sont pas encore configurées. Les champs concernés sont signalés et devront obligatoirement être renseignés avant la publication.</p></aside>}
