@@ -130,10 +130,6 @@ public sealed class MailboxesController(
         {
             return Conflict(new { error = "Déconnectez la boîte avant de la supprimer." });
         }
-        if (await mailboxAccess.OwnedMailboxes().CountAsync(cancellationToken) <= 1)
-        {
-            return Conflict(new { error = "La dernière boîte configurée ne peut pas être supprimée." });
-        }
         dbContext.MailboxConnections.Remove(mailbox);
         await dbContext.SaveChangesAsync(cancellationToken);
         return NoContent();
