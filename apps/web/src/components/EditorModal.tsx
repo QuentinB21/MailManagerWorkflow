@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 type Props = {
   eyebrow: string
@@ -46,7 +47,7 @@ export function EditorModal({ eyebrow, title, onClose, children, wide = false }:
     if (event.target === event.currentTarget) onClose()
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={closeFromBackdrop}>
       <section ref={dialogRef} className={wide ? 'editor-modal wide' : 'editor-modal'} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <header className="modal-header">
@@ -55,6 +56,7 @@ export function EditorModal({ eyebrow, title, onClose, children, wide = false }:
         </header>
         <div className="modal-content">{children}</div>
       </section>
-    </div>
+    </div>,
+    document.body,
   )
 }
