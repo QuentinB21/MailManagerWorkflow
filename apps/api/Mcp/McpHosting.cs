@@ -90,7 +90,7 @@ public static class McpHosting
         app.MapMcp("/api/mcp").RequireAuthorization(McpOptions.Policy);
         app.MapGet("/api/mcp/connection", () => Results.Ok(new
         {
-            url = settings.PublicUrl, chatGptClientId = "mail-manager-chatgpt", claudeClientId = "mail-manager-claude",
+            url = settings.PublicUrl, chatGptClientId = "mail-manager-chatgpt", claudeClientId = "mail-manager-claude", codexClientId = "mail-manager-codex",
             scope = McpOptions.Scope
         })).RequireAuthorization();
     }

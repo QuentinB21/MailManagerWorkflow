@@ -21,7 +21,7 @@ public sealed class KeycloakMcpConfigurationTests
             Assert.True(scopes.ContainsKey(scope.GetString()!));
         Assert.Contains(realm.GetProperty("defaultDefaultClientScopes").EnumerateArray(), x => x.GetString() == "roles");
         Assert.Contains(realm.GetProperty("defaultDefaultClientScopes").EnumerateArray(), x => x.GetString() == "basic");
-        foreach (var id in new[] { "mail-manager-chatgpt", "mail-manager-claude" })
+        foreach (var id in new[] { "mail-manager-chatgpt", "mail-manager-claude", "mail-manager-codex" })
         {
             var client = realm.GetProperty("clients").EnumerateArray().Single(x => x.GetProperty("clientId").GetString() == id);
             Assert.True(client.GetProperty("publicClient").GetBoolean());
@@ -31,6 +31,8 @@ public sealed class KeycloakMcpConfigurationTests
             Assert.False(client.GetProperty("fullScopeAllowed").GetBoolean());
             Assert.Equal("S256", client.GetProperty("attributes").GetProperty("pkce.code.challenge.method").GetString());
             Assert.DoesNotContain(client.GetProperty("redirectUris").EnumerateArray(), x => x.GetString()!.Contains('*'));
+            if (id == "mail-manager-codex")
+                Assert.Equal("http://127.0.0.1:5557/callback", client.GetProperty("redirectUris").EnumerateArray().Single().GetString());
             var mapping = realm.GetProperty("scopeMappings").EnumerateArray().Single(x => x.GetProperty("client").GetString() == id);
             Assert.Contains(mapping.GetProperty("roles").EnumerateArray(), x => x.GetString() == "demo");
             Assert.Contains(mapping.GetProperty("roles").EnumerateArray(), x => x.GetString() == "automation");

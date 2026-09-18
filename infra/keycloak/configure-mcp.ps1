@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory)][uri]$McpPublicUrl,
     [Parameter(Mandatory)][pscredential]$Credential,
     [string]$ChatGptRedirectUri = 'https://chatgpt.com/connector_platform_oauth_redirect',
+    [string]$CodexRedirectUri = 'http://127.0.0.1:5557/callback',
     [string]$Realm = 'mail-manager'
 )
 
@@ -17,6 +18,10 @@ if ($ChatGptRedirectUri -notmatch '^https://chatgpt\.com/(connector_platform_oau
     throw "Copiez l'URI de retour exacte affichee par ChatGPT ; les jokers ne sont pas autorises."
 }
 $base = $KeycloakUrl.AbsoluteUri.TrimEnd('/')
+if ($CodexRedirectUri -cnotmatch '^http://127\.0\.0\.1:([0-9]{1,5})/callback(/[A-Za-z0-9_-]+)?$' -or
+    ([uri]$CodexRedirectUri).Port -lt 1024 -or ([uri]$CodexRedirectUri).Port -gt 65535) {
+    throw 'CodexRedirectUri doit etre une adresse exacte http://127.0.0.1:PORT/callback (port 1024-65535), sans joker.'
+}
 $template = Get-Content -Raw (Join-Path $PSScriptRoot 'import/mail-manager-realm.json') | ConvertFrom-Json
 $token = Invoke-RestMethod -Method Post -Uri "$base/realms/master/protocol/openid-connect/token" -Body @{
     client_id = 'admin-cli'; grant_type = 'password'; username = $Credential.UserName
@@ -52,8 +57,9 @@ try {
     }
     $allScopes = @(Invoke-Kc GET 'client-scopes' $null)
     $roles = @('demo', 'automation' | ForEach-Object { Invoke-Kc GET "roles/$_" $null })
-    foreach ($clientTemplate in @($template.clients | Where-Object clientId -in @('mail-manager-chatgpt', 'mail-manager-claude'))) {
+    foreach ($clientTemplate in @($template.clients | Where-Object clientId -in @('mail-manager-chatgpt', 'mail-manager-claude', 'mail-manager-codex'))) {
         if ($clientTemplate.clientId -eq 'mail-manager-chatgpt') { $clientTemplate.redirectUris = @($ChatGptRedirectUri) }
+        if ($clientTemplate.clientId -eq 'mail-manager-codex') { $clientTemplate.redirectUris = @($CodexRedirectUri) }
         $client = @(Invoke-Kc GET "clients?clientId=$($clientTemplate.clientId)" $null) | Where-Object clientId -eq $clientTemplate.clientId
         if ($client) {
             $clientTemplate | Add-Member -NotePropertyName id -NotePropertyValue $client.id -Force

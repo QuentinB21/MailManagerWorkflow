@@ -14,11 +14,19 @@ export function AssistantConnectionPanel() {
 
   return <div className="page account-privacy-page">
     <section className="surface account-privacy-panel">
-      <div className="section-heading"><div><p className="overline">Assistant IA</p><h2>Configurez votre classement avec ChatGPT ou Claude</h2><p>Connectez votre assistant à MailManager, décrivez votre besoin et confirmez les changements dans la conversation. Votre assistant utilise ses propres ressources IA.</p></div></div>
+      <div className="section-heading"><div><p className="overline">Assistant IA</p><h2>Configurez votre classement avec Codex, ChatGPT ou Claude</h2><p>Connectez votre assistant à MailManager, décrivez votre besoin et confirmez les changements dans la conversation. Votre assistant utilise ses propres ressources IA.</p></div></div>
       {connection && <>
         <label>Adresse du connecteur<input readOnly value={connection.url} aria-label="Adresse du connecteur MCP" onFocus={(event) => event.target.select()} /></label>
         <button type="button" className="button secondary" onClick={() => void copyUrl()}>Copier l’adresse</button>
         <div className="account-privacy-actions">
+          <article><div><strong>Codex</strong><p>Utilisez le transport « Diffusion HTTP en continu » avec cette adresse. La connexion OAuth utilise l’identifiant <code>{connection.codexClientId}</code>, sans secret. Si le formulaire ne propose pas ce champ, ajoutez les paramètres ci-dessous à votre configuration Codex, puis lancez <code>codex mcp login mailmanager</code> sur votre ordinateur.</p><pre>{`[mcp_servers.mailmanager]
+url = ${JSON.stringify(connection.url)}
+default_tools_approval_mode = "writes"
+
+[mcp_servers.mailmanager.oauth]
+client_id = ${JSON.stringify(connection.codexClientId)}
+callback_url = "http://127.0.0.1:5557/callback"
+callback_port = 5557`}</pre><p>Complétez l’entrée MailManager existante plutôt que de créer un doublon. L’administrateur doit avoir activé le client Codex avec cette adresse de retour.</p></div></article>
           <article><div><strong>ChatGPT</strong><p>Ajoutez un connecteur MCP personnalisé dans les paramètres des applications, avec cette adresse et l’authentification OAuth. Si demandé, utilisez l’identifiant <code>{connection.chatGptClientId}</code>, sans secret. La disponibilité dépend des options de votre compte ChatGPT.</p></div></article>
           <article><div><strong>Claude</strong><p>Ajoutez un connecteur personnalisé dans les paramètres des connecteurs. Dans les options avancées, utilisez l’identifiant <code>{connection.claudeClientId}</code>, sans secret, puis connectez-vous à MailManager.</p></div></article>
         </div>

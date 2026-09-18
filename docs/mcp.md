@@ -1,4 +1,4 @@
-# MCP MailManager : ChatGPT et Claude
+# MCP MailManager : Codex, ChatGPT et Claude
 
 Le MCP permet aux utilisateurs de consulter leurs boîtes et leur configuration,
 de préparer des créations/modifications de destinations et de règles, de tester
@@ -25,8 +25,8 @@ l'adresse MCP. Aucun nouveau port public n'est nécessaire.
 
 ## Keycloak : premier démarrage ou installation existante
 
-Le realm initial déclare les clients publics `mail-manager-chatgpt` et
-`mail-manager-claude`, avec Authorization Code + PKCE S256, consentement utilisateur,
+Le realm initial déclare les clients publics `mail-manager-chatgpt`,
+`mail-manager-claude` et `mail-manager-codex`, avec Authorization Code + PKCE S256, consentement utilisateur,
 scope optionnel `mailmanager` et audience MCP. Les jetons MCP ne portent pas
 l'audience de l'API générale : ils ne donnent pas accès aux autres routes API.
 Le MCP refuse les jetons web/n8n et les comptes portant le rôle `automation`.
@@ -47,7 +47,7 @@ Appliquer le script suivant depuis PowerShell, avec un administrateur Keycloak :
   -ChatGptRedirectUri 'https://chatgpt.com/connector_platform_oauth_redirect'
 ```
 
-Le script crée/met à jour uniquement le scope et les deux clients MCP et leurs
+Le script crée/met à jour uniquement le scope et les trois clients MCP et leurs
 mappings. Il ne réimporte pas le realm, ne change pas les mots de passe et ne
 modifie pas les clients web/n8n. Il peut être relancé. Pour une administration
 non publique, utiliser l'URL d'administration accessible depuis votre réseau,
@@ -71,6 +71,43 @@ depuis les services de ChatGPT et Claude.
 Cette version utilise des **clients OAuth préenregistrés** : renseigner leur
 identifiant à la connexion. Elle n'ajoute pas un endpoint public d'enregistrement
 dynamique et n'accepte pas des identifiants de client arbitraires.
+
+## Connecter Codex sur son ordinateur
+
+Le formulaire HTTP de Codex ne propose pas nécessairement les paramètres du
+client OAuth. Laisser vides le jeton du porteur et les en-têtes : aucun mot de
+passe administrateur ni jeton manuel n'est nécessaire dans ce formulaire.
+
+1. L'administrateur relance `infra/keycloak/configure-mcp.ps1` avec les mêmes
+   paramètres que ci-dessus. Cela ajoute `mail-manager-codex` sur le Keycloak
+   existant, sans migration de base de données ni nouveau déploiement de l'API.
+2. Sur l'ordinateur où tourne Codex, fusionner le contenu de
+   `infra/codex/mail-manager.toml` dans `~/.codex/config.toml`
+   (`$HOME/.codex/config.toml` dans PowerShell). Ne pas remplacer le fichier
+   entier. Si MailManager existe déjà, compléter son entrée et employer son nom
+   existant dans les sous-tables et la commande suivante, sans créer de doublon.
+3. Lancer `codex mcp login mailmanager` depuis un terminal **local**, puis se
+   connecter avec son compte utilisateur MailManager du VPS et accorder l'accès.
+4. Recharger Codex si nécessaire et demander « Liste mes boîtes MailManager ».
+   Préparer ensuite une règle, la simuler, puis confirmer son application.
+
+Le modèle de configuration impose `default_tools_approval_mode = "writes"`
+pour demander l'approbation des outils qui écrivent. Le client public utilise
+PKCE S256 et le retour exact `http://127.0.0.1:5557/callback`. Cette adresse
+désigne l'ordinateur de l'utilisateur ; ne pas ouvrir le port 5557 sur le VPS.
+Codex écoute localement sur ce port pendant la connexion. Si ce port est occupé,
+choisir un autre port dans `callback_url` **et** `callback_port`, puis transmettre
+la même URL au script Keycloak avec `-CodexRedirectUri`.
+
+Cette configuration nécessite une version de Codex prenant en charge
+`mcp_servers.<nom>.oauth.client_id`, `callback_url` et `callback_port`.
+Keycloak doit annoncer `authorization_response_iss_parameter_supported: true`
+dans sa découverte OIDC, comme la version déployée vérifiée le 18 septembre 2026.
+Sinon Codex utilise un retour avec un identifiant supplémentaire : enregistrer
+l'adresse exacte qu'il affiche, sans joker, via `-CodexRedirectUri` et dans
+`callback_url`. Les connexions ChatGPT et Claude restent indépendantes.
+
+Référence : [configuration OAuth de Codex](https://developers.openai.com/codex/mcp/).
 
 ## Connecter ChatGPT
 

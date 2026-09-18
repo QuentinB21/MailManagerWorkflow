@@ -37,7 +37,8 @@
   },
   "scopeMappings": [
     { "client": "mail-manager-chatgpt", "roles": ["demo", "automation"] },
-    { "client": "mail-manager-claude", "roles": ["demo", "automation"] }
+    { "client": "mail-manager-claude", "roles": ["demo", "automation"] },
+    { "client": "mail-manager-codex", "roles": ["demo", "automation"] }
   ],
   "defaultDefaultClientScopes": ["profile", "email", "roles", "web-origins", "acr", "basic"],
   "defaultOptionalClientScopes": ["offline_access", "address", "phone", "microprofile-jwt", "organization"],
@@ -671,6 +672,23 @@
     }
   ],
   "clients": [
+    {
+      "clientId": "mail-manager-codex",
+      "name": "MailManager dans Codex",
+      "redirectUris": ["http://127.0.0.1:5557/callback"],
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "consentRequired": true,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": ["basic", "roles"],
+      "optionalClientScopes": ["mailmanager"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    },
     {
       "clientId": "mail-manager-chatgpt",
       "name": "MailManager dans ChatGPT",
