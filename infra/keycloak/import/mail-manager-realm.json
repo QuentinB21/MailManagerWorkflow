@@ -38,7 +38,7 @@
   "scopeMappings": [
     { "client": "mail-manager-chatgpt", "roles": ["demo", "automation"] },
     { "client": "mail-manager-claude", "roles": ["demo", "automation"] },
-    { "client": "mail-manager-codex", "roles": ["demo", "automation"] }
+    { "client": "mail-manager-codex", "roles": ["demo", "automation", "offline_access"] }
   ],
   "defaultDefaultClientScopes": ["profile", "email", "roles", "web-origins", "acr", "basic"],
   "defaultOptionalClientScopes": ["offline_access", "address", "phone", "microprofile-jwt", "organization"],
@@ -686,7 +686,7 @@
       "consentRequired": true,
       "fullScopeAllowed": false,
       "defaultClientScopes": ["basic", "roles"],
-      "optionalClientScopes": ["mailmanager"],
+      "optionalClientScopes": ["mailmanager", "offline_access"],
       "attributes": { "pkce.code.challenge.method": "S256" }
     },
     {

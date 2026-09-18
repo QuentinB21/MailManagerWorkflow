@@ -36,6 +36,11 @@ public sealed class KeycloakMcpConfigurationTests
             var mapping = realm.GetProperty("scopeMappings").EnumerateArray().Single(x => x.GetProperty("client").GetString() == id);
             Assert.Contains(mapping.GetProperty("roles").EnumerateArray(), x => x.GetString() == "demo");
             Assert.Contains(mapping.GetProperty("roles").EnumerateArray(), x => x.GetString() == "automation");
+            if (id == "mail-manager-codex")
+            {
+                Assert.Contains(client.GetProperty("optionalClientScopes").EnumerateArray(), x => x.GetString() == "offline_access");
+                Assert.Contains(mapping.GetProperty("roles").EnumerateArray(), x => x.GetString() == "offline_access");
+            }
         }
         foreach (var mapper in scopes["mailmanager"].GetProperty("protocolMappers").EnumerateArray())
             Assert.EndsWith("/api/mcp", mapper.GetProperty("config").GetProperty("included.custom.audience").GetString());

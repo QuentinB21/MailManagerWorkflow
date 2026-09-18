@@ -22,7 +22,7 @@ if ($CodexRedirectUri -cnotmatch '^http://127\.0\.0\.1:([0-9]{1,5})/callback(/[A
     ([uri]$CodexRedirectUri).Port -lt 1024 -or ([uri]$CodexRedirectUri).Port -gt 65535) {
     throw 'CodexRedirectUri doit etre une adresse exacte http://127.0.0.1:PORT/callback (port 1024-65535), sans joker.'
 }
-$template = Get-Content -Raw (Join-Path $PSScriptRoot 'import/mail-manager-realm.json') | ConvertFrom-Json
+$template = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'import/mail-manager-realm.json') | ConvertFrom-Json
 $token = Invoke-RestMethod -Method Post -Uri "$base/realms/master/protocol/openid-connect/token" -Body @{
     client_id = 'admin-cli'; grant_type = 'password'; username = $Credential.UserName
     password = $Credential.GetNetworkCredential().Password
@@ -68,13 +68,21 @@ try {
             Invoke-Kc POST 'clients' $clientTemplate | Out-Null
             $client = @(Invoke-Kc GET "clients?clientId=$($clientTemplate.clientId)" $null) | Where-Object clientId -eq $clientTemplate.clientId
         }
-        Invoke-Kc PUT "clients/$($client.id)/optional-client-scopes/$($scope.id)" $null | Out-Null
+        foreach ($scopeName in $clientTemplate.optionalClientScopes) {
+            $optionalScope = $allScopes | Where-Object name -eq $scopeName
+            if (-not $optionalScope) { throw "Le scope Keycloak '$scopeName' est absent." }
+            Invoke-Kc PUT "clients/$($client.id)/optional-client-scopes/$($optionalScope.id)" $null | Out-Null
+        }
         foreach ($scopeName in @('basic', 'roles')) {
             $defaultScope = $allScopes | Where-Object name -eq $scopeName
             if (-not $defaultScope) { throw "Le scope Keycloak standard '$scopeName' est absent. Restaurez-le avant d'utiliser le MCP." }
             Invoke-Kc PUT "clients/$($client.id)/default-client-scopes/$($defaultScope.id)" $null | Out-Null
         }
         Invoke-Kc POST "clients/$($client.id)/scope-mappings/realm" $roles | Out-Null
+        if ($clientTemplate.clientId -eq 'mail-manager-codex') {
+            $offlineRole = @(Invoke-Kc GET 'roles/offline_access' $null)
+            Invoke-Kc POST "clients/$($client.id)/scope-mappings/realm" $offlineRole | Out-Null
+        }
         Write-Host "Client configuré : $($clientTemplate.clientId)"
     }
     Write-Host "Configuration MCP terminee. Aucun role supplementaire n'est requis pour les utilisateurs."

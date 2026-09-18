@@ -3,6 +3,7 @@
 [mcp_servers.mailmanager]
 url = "https://quentin-bouchot.fr/projets/MailManager/api/mcp"
 default_tools_approval_mode = "writes"
+scopes = ["mailmanager", "offline_access"]
 
 [mcp_servers.mailmanager.oauth]
 client_id = "mail-manager-codex"

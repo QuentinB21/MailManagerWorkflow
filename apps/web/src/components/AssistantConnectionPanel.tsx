@@ -22,6 +22,7 @@ export function AssistantConnectionPanel() {
           <article><div><strong>Codex</strong><p>Utilisez le transport « Diffusion HTTP en continu » avec cette adresse. La connexion OAuth utilise l’identifiant <code>{connection.codexClientId}</code>, sans secret. Si le formulaire ne propose pas ce champ, ajoutez les paramètres ci-dessous à votre configuration Codex, puis lancez <code>codex mcp login mailmanager</code> sur votre ordinateur.</p><pre>{`[mcp_servers.mailmanager]
 url = ${JSON.stringify(connection.url)}
 default_tools_approval_mode = "writes"
+scopes = ["mailmanager", "offline_access"]
 
 [mcp_servers.mailmanager.oauth]
 client_id = ${JSON.stringify(connection.codexClientId)}

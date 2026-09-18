@@ -80,6 +80,20 @@ dynamique et n'accepte pas des identifiants de client arbitraires.
 
 ## Connecter Codex sur son ordinateur
 
+Le client Codex autorise aussi le scope optionnel `offline_access` et son mapping
+de rôle. Codex peut le redemander lors du renouvellement : sans lui, Keycloak
+répond `invalid_scope: Invalid scopes: mailmanager offline_access` dès l'expiration
+du jeton d'accès, même si la connexion initiale a réussi. Après mise à jour d'une
+installation existante avec `configure-mcp.ps1`, refaire une connexion pour
+accorder cette permission. Les utilisateurs doivent conserver le rôle standard
+Keycloak `offline_access` (normalement attribué par défaut) ; le script ajoute
+le mapping au client, sans attribuer de nouveaux rôles aux utilisateurs.
+
+La connexion hors ligne peut survivre à la déconnexion du site MailManager.
+Elle reste révocable dans la console de compte Keycloak et soumise aux limites
+de session hors ligne du realm. Les durées des jetons d'accès et les paramètres
+globaux du realm ne sont pas allongés par ce script.
+
 Le formulaire HTTP de Codex ne propose pas nécessairement les paramètres du
 client OAuth. Laisser vides le jeton du porteur et les en-têtes : aucun mot de
 passe administrateur ni jeton manuel n'est nécessaire dans ce formulaire.
@@ -92,12 +106,20 @@ passe administrateur ni jeton manuel n'est nécessaire dans ce formulaire.
    (`$HOME/.codex/config.toml` dans PowerShell). Ne pas remplacer le fichier
    entier. Si MailManager existe déjà, compléter son entrée et employer son nom
    existant dans les sous-tables et la commande suivante, sans créer de doublon.
-3. Lancer `codex mcp login mailmanager` depuis un terminal **local**, puis se
+3. Lancer `codex mcp login mailmanager --scopes mailmanager,offline_access` depuis un terminal **local**, puis se
    connecter avec son compte utilisateur MailManager du VPS et accorder l'accès.
 4. Recharger Codex si nécessaire et demander « Liste mes boîtes MailManager ».
    Préparer ensuite une règle, la simuler, puis confirmer son application.
 
 Le modèle de configuration impose `default_tools_approval_mode = "writes"`
+et `scopes = ["mailmanager", "offline_access"]`. Cette liste explicite évite qu'un parcours de
+connexion demande tous les scopes publiés par le realm Keycloak et échoue avec
+`invalid_scope`. Après une modification de la configuration locale, quitter puis
+rouvrir Codex pour que le bouton « S'authentifier » utilise les nouveaux paramètres.
+Attendre le message de succès de la commande : accepter le consentement dans le
+navigateur ne prouve pas à lui seul que les jetons ont été enregistrés.
+
+Le réglage `default_tools_approval_mode = "writes"` sert
 pour demander l'approbation des outils qui écrivent. Le client public utilise
 PKCE S256 et le retour exact `http://127.0.0.1:5557/callback`. Cette adresse
 désigne l'ordinateur de l'utilisateur ; ne pas ouvrir le port 5557 sur le VPS.
