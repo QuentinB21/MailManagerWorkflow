@@ -23,6 +23,12 @@ Il doit préserver `Authorization`, `WWW-Authenticate`, `MCP-Protocol-Version`,
 accepter les réponses `text/event-stream` sans buffering et ne pas rediriger
 l'adresse MCP. Aucun nouveau port public n'est nécessaire.
 
+Les requêtes anonymes GET et POST sur `/api/mcp` doivent toutes deux répondre
+401 avec `WWW-Authenticate: Bearer resource_metadata="..."`. Codex peut commencer
+la découverte OAuth par GET. Un simple `Bearer` sans `resource_metadata` peut le
+faire retomber sur `/authorize` à la racine du portfolio. Le transport stateless
+n'ouvre pas de flux GET : une fois authentifié, GET répond 405 avec `Allow: POST`.
+
 ## Keycloak : premier démarrage ou installation existante
 
 Le realm initial déclare les clients publics `mail-manager-chatgpt`,

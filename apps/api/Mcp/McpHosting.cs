@@ -88,6 +88,13 @@ public static class McpHosting
         app.MapGet("/api/mcp/oauth-protected-resource", Metadata).AllowAnonymous();
         app.MapGet("/.well-known/oauth-protected-resource/api/mcp", Metadata).AllowAnonymous();
         app.MapMcp("/api/mcp").RequireAuthorization(McpOptions.Policy);
+        // Stateless transport only maps POST. OAuth clients also probe GET:
+        // use the MCP challenge instead of the application's fallback scheme.
+        app.MapGet("/api/mcp", (HttpContext context) =>
+        {
+            context.Response.Headers.Allow = "POST";
+            return Results.StatusCode(StatusCodes.Status405MethodNotAllowed);
+        }).RequireAuthorization(McpOptions.Policy);
         app.MapGet("/api/mcp/connection", () => Results.Ok(new
         {
             url = settings.PublicUrl, chatGptClientId = "mail-manager-chatgpt", claudeClientId = "mail-manager-claude", codexClientId = "mail-manager-codex",

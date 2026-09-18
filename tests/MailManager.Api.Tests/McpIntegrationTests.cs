@@ -28,11 +28,15 @@ public sealed class McpIntegrationTests : IClassFixture<McpApplication>
     private readonly McpApplication app;
     public McpIntegrationTests(McpApplication app) => this.app = app;
 
-    [Fact]
-    public async Task Anonymous_requests_advertise_public_oauth_metadata()
+    [Theory]
+    [InlineData("POST")]
+    [InlineData("GET")]
+    public async Task Anonymous_requests_advertise_public_oauth_metadata(string method)
     {
         using var client = app.CreateClient();
-        var response = await client.PostAsJsonAsync("/api/mcp", new { jsonrpc = "2.0", id = 1, method = "tools/list" });
+        var response = method == "GET"
+            ? await client.GetAsync("/api/mcp")
+            : await client.PostAsJsonAsync("/api/mcp", new { jsonrpc = "2.0", id = 1, method = "tools/list" });
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Contains("resource_metadata=\"http://localhost:8080/api/mcp/oauth-protected-resource\"", response.Headers.WwwAuthenticate.ToString());
         var metadata = await client.GetFromJsonAsync<JsonElement>("/api/mcp/oauth-protected-resource");
@@ -51,6 +55,15 @@ public sealed class McpIntegrationTests : IClassFixture<McpApplication>
         using var request = Request("tools/list", new { });
         var response = await client.SendAsync(request);
         Assert.Equal(status, (int)response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Authenticated_get_keeps_stateless_transport_post_only()
+    {
+        using var client = app.Client("alice");
+        var response = await client.GetAsync("/api/mcp");
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        Assert.Contains("POST", response.Content.Headers.Allow);
     }
 
     [Fact]
