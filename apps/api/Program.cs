@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MailManager.Api.Mcp;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -87,6 +88,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.Automation, policy =>
         policy.RequireAssertion(context => context.User.HasRealmRole("automation")));
 });
+builder.Services.AddMailManagerMcp(builder.Configuration, authenticationOptions, builder.Environment.IsDevelopment());
 builder.Services
     .AddControllers()
     .AddJsonOptions(options =>
@@ -127,6 +129,7 @@ app.UseCors("Web");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapMailManagerMcp(authenticationOptions);
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 
 app.Run();

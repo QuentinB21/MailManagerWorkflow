@@ -41,6 +41,7 @@ async function accountExport() {
 }
 
 export const api = {
+  mcpConnection: () => request<{ url: string; chatGptClientId: string; claudeClientId: string; scope: string }>('/api/mcp/connection'),
   legalStatus: () => request<LegalStatus>('/api/account/legal-status'),
   acceptLegalDocuments: () => request<LegalStatus>('/api/account/legal-acceptance', {
     method: 'POST',

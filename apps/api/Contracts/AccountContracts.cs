@@ -15,7 +15,13 @@ public sealed record AccountExport(
     string AccountSubject,
     string DisplayName,
     IReadOnlyCollection<ExportedMailbox> Mailboxes,
-    LegalAcceptanceExport? LegalAcceptance);
+    LegalAcceptanceExport? LegalAcceptance,
+    IReadOnlyCollection<ExportedConfigurationProposal>? ConfigurationProposals = null);
+
+public sealed record ExportedConfigurationProposal(Guid Id, Guid MailboxId, DateTimeOffset CreatedAt,
+    DateTimeOffset ExpiresAt, DateTimeOffset? AppliedAt, string SynchronizationStatus,
+    System.Text.Json.JsonElement Before, System.Text.Json.JsonElement After,
+    string[] Warnings);
 
 public sealed record ExportedMailbox(
     Guid Id,

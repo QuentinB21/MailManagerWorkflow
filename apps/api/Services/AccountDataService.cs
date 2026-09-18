@@ -3,6 +3,8 @@ using MailManager.Api.Data;
 using MailManager.Api.Domain;
 using MailManager.Api.Security;
 using Microsoft.EntityFrameworkCore;
+using MailManager.Api.Mcp;
+using System.Text.Json;
 
 namespace MailManager.Api.Services;
 
@@ -26,6 +28,9 @@ public sealed class AccountDataService(
         var acceptance = await dbContext.LegalAcceptances
             .AsNoTracking()
             .SingleOrDefaultAsync(item => item.OwnerSubject == currentUser.Subject, cancellationToken);
+
+        var proposals = await dbContext.ConfigurationProposals.AsNoTracking()
+            .Where(item => item.OwnerSubject == currentUser.Subject).OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
 
         return new AccountExport(
             DateTimeOffset.UtcNow,
@@ -70,7 +75,10 @@ public sealed class AccountDataService(
                     item.ProcessedAt)).ToArray())).ToArray(),
             acceptance is null
                 ? null
-                : new LegalAcceptanceExport(acceptance.TermsVersion, acceptance.PrivacyVersion, acceptance.AcceptedAt));
+                : new LegalAcceptanceExport(acceptance.TermsVersion, acceptance.PrivacyVersion, acceptance.AcceptedAt),
+            proposals.Select(p => new ExportedConfigurationProposal(p.Id, p.MailboxConnectionId, p.CreatedAt,
+                p.ExpiresAt, p.AppliedAt, p.SynchronizationStatus, JsonSerializer.Deserialize<JsonElement>(p.BeforeJson),
+                JsonSerializer.Deserialize<JsonElement>(p.AfterJson), McpJson.Deserialize<string[]>(p.WarningsJson))).ToArray());
     }
 
     public async Task DeleteApplicationDataAsync(CancellationToken cancellationToken)

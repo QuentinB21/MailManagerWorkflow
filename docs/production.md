@@ -10,6 +10,7 @@ réseau Docker externe `public-proxy`.
 |---|---|
 | `/projets/MailManager/` | `mail-manager-web:80` |
 | `/projets/MailManager/api/*` | `mail-manager-api:8080` |
+| `/projets/MailManager/api/mcp` et `/projets/MailManager/api/mcp/oauth-protected-resource` | `mail-manager-api:8080` (inclus dans `/api/*`) |
 | `/projets/MailManager/health` | `mail-manager-api:8080` |
 | `/projets/MailManager/auth/*` | `mail-manager-keycloak:8080` |
 | `/projets/MailManager/webhook/*` | `mail-manager-n8n:5678` |
@@ -73,6 +74,11 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build --r
 ```
 
 ## Realm Keycloak existant
+
+Pour activer le connecteur ChatGPT/Claude, appliquer également la configuration
+des clients MCP décrite dans [mcp.md](mcp.md). Le nouvel import du realm ne suffit
+pas sur une installation existante. Le proxy doit laisser passer les réponses
+Streamable HTTP ainsi que les en-têtes d'authentification et de protocole MCP.
 
 L’import JSON ne modifie pas un realm déjà présent dans PostgreSQL. Si le realm
 `mail-manager` a déjà été importé, mettre à jour le client

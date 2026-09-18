@@ -47,6 +47,7 @@ function PrivacyPolicy() {
         <li>identité et coordonnées du compte transmises par Keycloak : identifiant, nom, prénom et courriel ;</li>
         <li>boîtes connectées : fournisseur, adresse, autorisations OAuth et jeton de renouvellement chiffré ;</li>
         <li>configuration : destinations, couleurs, règles et critères définis par l’utilisateur ;</li>
+        <li>configuration depuis un assistant : propositions avant/après, dates de préparation et d’application, résultat de synchronisation ;</li>
         <li>historique : identifiant fournisseur du message, aperçu limité du sujet, décision de classement et éventuelle erreur ;</li>
         <li>données techniques de sécurité nécessaires au fonctionnement et à la prévention des abus.</li>
       </ul>
@@ -63,11 +64,16 @@ function PrivacyPolicy() {
     <Section title="Destinataires et sous-traitants">
       <p>Les données sont accessibles à l’éditeur et aux prestataires strictement nécessaires à l’exploitation. Keycloak, PostgreSQL et n8n sont exploités dans l’infrastructure Mail Manager. Google et Microsoft reçoivent les requêtes nécessaires à l’autorisation OAuth et au classement dans leur propre service, conformément à leurs conditions et politiques.</p>
     </Section>
+    <Section title="Connexion à votre assistant IA">
+      <p>Si vous connectez un assistant externe à Mail Manager, il peut recevoir les noms, adresses et fournisseurs de vos boîtes, vos destinations, vos règles et les propositions de changements. Le MCP ne transmet pas le contenu réel de vos emails ni les jetons de connexion à vos messageries. Un exemple que vous fournissez à votre assistant peut être utilisé pour une simulation ; Mail Manager ne le conserve pas.</p>
+      <p>Les changements sont confirmés dans votre assistant et exécutés avec vos droits Mail Manager. Les données reçues par le service d’assistance suivent ses propres conditions de traitement, de conservation et de transfert. Vous pouvez révoquer son autorisation dans votre espace d’identité Mail Manager ; les jetons d’accès déjà délivrés expirent selon leur durée de validité.</p>
+    </Section>
     <Section title="Durées de conservation">
       <ul>
         <li>compte, boîtes, destinations et règles : jusqu’à leur suppression ou à la suppression des données du compte ;</li>
         <li>jetons OAuth : jusqu’à la déconnexion de la boîte, la révocation fournisseur ou la suppression des données ;</li>
         <li>historique des traitements : 90 jours par défaut, puis suppression automatique ;</li>
+        <li>propositions de configuration par assistant : même durée de rétention que l’historique, 90 jours par défaut, ou suppression avec la boîte ; une proposition non appliquée expire après 30 minutes ;</li>
         <li>preuve d’acceptation des conditions : pendant la durée du compte, puis suppression avec les données applicatives.</li>
       </ul>
     </Section>
@@ -123,7 +129,7 @@ export function LegalPage({ kind }: { kind: LegalDocumentKind }) {
   return <main className="legal-page">
     <header className="legal-topbar"><a className="brand" href={appHomePath} aria-label="Revenir à Mail Manager"><img className="brand-mark" src={appPath('logo.svg')} alt="" /><div><strong>Mail Manager</strong><small>Classement automatique</small></div></a><a className="legal-back" href={appHomePath}>← Revenir à l’application</a></header>
     <article className="legal-document">
-      <header className="legal-heading"><p className="overline">{heading.overline}</p><h1>{heading.title}</h1><p>Version du {updatedAt}</p></header>
+      <header className="legal-heading"><p className="overline">{heading.overline}</p><h1>{heading.title}</h1><p>Version du {kind === 'privacy' ? '14 septembre 2026' : updatedAt}</p></header>
       {!legalConfiguration.isComplete && <aside className="legal-warning" role="note"><strong>Version de développement</strong><p>Les coordonnées légales de l’exploitant ne sont pas encore configurées. Les champs concernés sont signalés et devront obligatoirement être renseignés avant la publication.</p></aside>}
       {kind === 'legalNotice' && <LegalNotice />}
       {kind === 'privacy' && <PrivacyPolicy />}

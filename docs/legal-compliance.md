@@ -52,6 +52,7 @@ Selon la forme de l’exploitant, vérifier notamment :
 | Connexion OAuth | adresse de boîte, fournisseur, scopes, jeton chiffré | accéder à la boîte sur instruction de l’utilisateur | exécution du service | jusqu’à déconnexion ou effacement |
 | Classement | expéditeur, sujet et corps traités en mémoire | évaluer les règles et appliquer une destination | exécution du service | corps non conservé |
 | Configuration | destinations, règles et critères | personnaliser le classement | exécution du service | durée du compte ou suppression |
+| Configuration par MCP | propositions avant/après, dates, résultat de synchronisation | appliquer les changements demandés via un assistant externe | exécution du service | rétention de l’historique, 90 jours par défaut ; suppression avec la boîte |
 | Historique | identifiant message, aperçu du sujet, décision, erreur | preuve de traitement et diagnostic | exécution du service / intérêt légitime | 90 jours par défaut |
 | Sécurité | événements techniques strictement nécessaires | prévention des abus et disponibilité | intérêt légitime | à fixer dans la politique d’exploitation |
 | Acceptation juridique | sujet Keycloak, versions et date | prouver les conditions applicables | exécution du service / preuve | durée du compte |

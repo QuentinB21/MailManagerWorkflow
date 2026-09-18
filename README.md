@@ -164,6 +164,11 @@ pnpm build
 
 ## Endpoints principaux
 
+Le serveur MCP permet de configurer les règles et destinations depuis un assistant
+IA, avec confirmation dans la conversation. L'adresse et l'aide de connexion
+sont accessibles dans les paramètres de l'application. Voir [docs/mcp.md](docs/mcp.md)
+pour ChatGPT, Claude et la mise à jour Keycloak nécessaire aux installations existantes.
+
 | Méthode | Route | Rôle |
 |---|---|---|
 | `GET` | `/api/mailboxes` | Liste des boîtes configurées |

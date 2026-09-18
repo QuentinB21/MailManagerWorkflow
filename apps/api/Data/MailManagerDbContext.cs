@@ -20,9 +20,19 @@ public sealed class MailManagerDbContext(DbContextOptions<MailManagerDbContext> 
     public DbSet<ProcessingLog> ProcessingLogs => Set<ProcessingLog>();
     public DbSet<GmailOAuthConfiguration> GmailOAuthConfigurations => Set<GmailOAuthConfiguration>();
     public DbSet<LegalAcceptance> LegalAcceptances => Set<LegalAcceptance>();
+    public DbSet<ConfigurationProposal> ConfigurationProposals => Set<ConfigurationProposal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ConfigurationProposal>(entity =>
+        {
+            entity.Property(x => x.OwnerSubject).HasMaxLength(200);
+            entity.Property(x => x.SynchronizationStatus).HasMaxLength(30);
+            entity.Property(x => x.AppliedAt).IsConcurrencyToken();
+            entity.HasIndex(x => new { x.OwnerSubject, x.CreatedAt });
+            entity.HasOne(x => x.MailboxConnection).WithMany().HasForeignKey(x => x.MailboxConnectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<MailboxConnection>(entity =>
         {
             entity.Property(x => x.OwnerSubject).HasMaxLength(200);

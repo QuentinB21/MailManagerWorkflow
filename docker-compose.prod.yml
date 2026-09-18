@@ -101,6 +101,7 @@ services:
       Authentication__MetadataAddress: http://keycloak:8080/auth/realms/mail-manager/.well-known/openid-configuration
       Authentication__Issuer: https://quentin-bouchot.fr/projets/MailManager/auth/realms/mail-manager
       Authentication__Audience: mail-manager-api
+      Mcp__PublicUrl: https://quentin-bouchot.fr/projets/MailManager/api/mcp
       Authentication__RequireHttpsMetadata: "false"
     depends_on:
       postgres:

@@ -32,6 +32,9 @@ public sealed class DataRetentionCleanupService(
             var deleted = await dbContext.ProcessingLogs
                 .Where(item => item.ProcessedAt < cutoff)
                 .ExecuteDeleteAsync(cancellationToken);
+            await dbContext.ConfigurationProposals
+                .Where(item => item.CreatedAt < cutoff)
+                .ExecuteDeleteAsync(cancellationToken);
             if (deleted > 0)
             {
                 logger.LogInformation("{Count} entrées d'historique expirées ont été supprimées.", deleted);

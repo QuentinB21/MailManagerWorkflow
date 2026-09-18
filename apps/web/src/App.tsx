@@ -9,6 +9,7 @@ import { MailboxConnectionView } from './components/MailboxConnectionView'
 import type { ClassificationResult, GmailOAuthConfiguration, Label, Mailbox, MailboxSyncResult, MailProvider, ProcessingLog, ProviderConfiguration, Rule } from './types'
 import { useAuth } from './auth'
 import { AccountPrivacyPanel } from './components/AccountPrivacyPanel'
+import { AssistantConnectionPanel } from './components/AssistantConnectionPanel'
 
 type ClassificationSection = 'rules' | 'destinations' | 'test'
 const splitValues = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean)
@@ -208,7 +209,7 @@ function App() {
         </>}
       </div>}
       {activeView === 'activity' && <div className="page"><div className="page-header"><div><h1>Activité</h1><p>Décisions et actions fournisseur pour la boîte {mailbox?.provider} sélectionnée.</p></div></div><HistoryTable logs={logs} onRefresh={refreshHistory} busy={busy} /></div>}
-      {activeView === 'settings' && <><MailboxConnectionView mailboxes={mailboxes} selectedMailbox={mailbox} configurations={configurations} busy={busy} readOnly={auth.isDemo} syncResult={mailboxSyncResult} onSelect={selectMailbox} onAdd={addMailbox} onConnect={connectMailbox} onTestConnection={testMailboxConnection} onSync={syncMailbox} onDisconnect={disconnectMailbox} onDelete={deleteMailbox} />{!auth.isDemo && <AccountPrivacyPanel busy={busy} onExport={() => void exportAccountData()} onDeleteData={() => void deleteAccountData()} onManageIdentity={() => void auth.manageAccount()} />}</>}
+      {activeView === 'settings' && <><MailboxConnectionView mailboxes={mailboxes} selectedMailbox={mailbox} configurations={configurations} busy={busy} readOnly={auth.isDemo} syncResult={mailboxSyncResult} onSelect={selectMailbox} onAdd={addMailbox} onConnect={connectMailbox} onTestConnection={testMailboxConnection} onSync={syncMailbox} onDisconnect={disconnectMailbox} onDelete={deleteMailbox} /><AssistantConnectionPanel />{!auth.isDemo && <AccountPrivacyPanel busy={busy} onExport={() => void exportAccountData()} onDeleteData={() => void deleteAccountData()} onManageIdentity={() => void auth.manageAccount()} />}</>}
     </AppShell>
   )
 }
